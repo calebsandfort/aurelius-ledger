@@ -8,7 +8,7 @@ files:
     - backend/.envrc
 
 post_create:
-  - chmod +x scripts/worktree-env scripts/worktree-setup
+  - chmod +x scripts/worktree-env scripts/worktree-setup scripts/start-backend
   - ./scripts/worktree-env
   - ./scripts/worktree-setup
 
@@ -17,3 +17,12 @@ pre_merge:
 
 pre_remove:
   - docker compose down 2>/dev/null || true
+
+panes:
+  - command: claude
+    focus: true
+  - split: horizontal
+  - command: cd frontend && pnpm dev
+    split: vertical
+  - command: ./scripts/start-backend
+    split: vertical

@@ -21,8 +21,7 @@ echo "=== [4/5] Pushing database schema ==="
 # dotenv/config in drizzle.config.ts won't override the already-set DATABASE_URL.
 direnv exec "${WORKTREE_ROOT}" sh -c "cd ${WORKTREE_ROOT}/frontend && pnpm drizzle-kit push"
 
-echo "=== [5/5] Syncing backend deps and starting all services ==="
+echo "=== [5/5] Syncing backend deps ==="
 cd "${WORKTREE_ROOT}/backend" && uv sync
-docker compose $ENV_FLAGS up --build -d
 
 echo "=== Setup complete ==="
