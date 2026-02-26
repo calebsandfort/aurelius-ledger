@@ -1,11 +1,24 @@
 #!/usr/bin/env bash
 set -e
 WORKTREE_ROOT="${WM_WORKTREE_PATH:-$(cd "$(dirname "$0")/.." && pwd)}"
-set -a
-[ -f "${WORKTREE_ROOT}/.env" ]                 && source "${WORKTREE_ROOT}/.env"
-[ -f "${WORKTREE_ROOT}/.env.local" ]           && source "${WORKTREE_ROOT}/.env.local"
-[ -f "${WORKTREE_ROOT}/backend/.env" ]         && source "${WORKTREE_ROOT}/backend/.env"
-[ -f "${WORKTREE_ROOT}/backend/.env.local" ]   && source "${WORKTREE_ROOT}/backend/.env.local"
-set +a
+
+_load_dotenv() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" == \#* || "$line" != *=* ]] && continue
+    local key="${line%%=*}"
+    local value="${line#*=}"
+    [[ "$value" == '"'*'"' ]] && value="${value:1:${#value}-2}"
+    [[ "$value" == "'"*"'" ]] && value="${value:1:${#value}-2}"
+    export "$key=$value"
+  done < "$file"
+}
+
+_load_dotenv "${WORKTREE_ROOT}/.env"
+_load_dotenv "${WORKTREE_ROOT}/.env.local"
+_load_dotenv "${WORKTREE_ROOT}/backend/.env"
+_load_dotenv "${WORKTREE_ROOT}/backend/.env.local"
+
 cd "${WORKTREE_ROOT}/backend"
 exec uv run uvicorn src.main:app --host 0.0.0.0 --port "${BACKEND_PORT:-8000}" --reload
