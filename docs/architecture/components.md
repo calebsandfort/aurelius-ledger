@@ -1,6 +1,6 @@
 # Component Architecture
 
-This document describes the frontend component structure and patterns used in the boilerplate.
+This document describes the frontend component structure and patterns used in Aurelius Ledger.
 
 ## Directory Structure
 

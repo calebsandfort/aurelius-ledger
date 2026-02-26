@@ -1,6 +1,6 @@
 # Components
 
-This section documents the UI components used in the boilerplate.
+This section documents the UI components used in Aurelius Ledger.
 
 ## Core Components
 

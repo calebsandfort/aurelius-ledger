@@ -1,6 +1,6 @@
 # Guides
 
-Step-by-step guides for working with the boilerplate.
+Step-by-step guides for working with Aurelius Ledger.
 
 ## Getting Started
 

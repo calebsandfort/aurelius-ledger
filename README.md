@@ -1,6 +1,6 @@
-# Full-Stack Boilerplate
+# Aurelius Ledger
 
-A production-ready full-stack boilerplate with Next.js, FastAPI, LangGraph, and CopilotKit.
+A production-ready AI-powered financial ledger built with Next.js, FastAPI, LangGraph, and CopilotKit.
 
 ## Stack
 
@@ -45,10 +45,10 @@ Open `.env` and fill in your values:
 # Database — defaults work for local Docker setup
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
-POSTGRES_DB=boilerplate
+POSTGRES_DB=aurelius-ledger
 
 # Change the DB name above and in the URL below to match your project
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/boilerplate
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/aurelius-ledger
 
 # Better Auth — generate a random secret
 # Run: openssl rand -base64 32
@@ -138,7 +138,7 @@ rm -rf .git
 # Initialize a fresh repo
 git init
 git add .
-git commit -m "feat: initial project from boilerplate"
+git commit -m "feat: initial Aurelius Ledger project"
 
 # Connect to your remote
 git remote add origin https://github.com/your-username/your-repo.git

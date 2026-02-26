@@ -1,6 +1,6 @@
 # System Architecture Overview
 
-This document describes the high-level architecture of the AI-powered full-stack boilerplate.
+This document describes the high-level architecture of Aurelius Ledger.
 
 ## Architecture Diagram
 
