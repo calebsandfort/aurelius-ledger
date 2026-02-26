@@ -1,8 +1,8 @@
-# Boilerplate Project
+# Aurelius Ledger
 
 ## Project Overview
 
-A production-ready full-stack boilerplate for building AI-powered applications. Provides a pre-wired integration between a Next.js frontend and a FastAPI backend, with self-hosted authentication (Better Auth + Drizzle ORM), an agentic AI pipeline (LangGraph + CopilotKit), and a TimescaleDB database -- all containerized with Docker Compose for reproducible local development and straightforward deployment.
+A lightweight web application for logging futures trades during live trading sessions. Aurelius Ledger uses natural language processing to extract structured trade data from plain text descriptions, providing real-time P&L tracking, discipline and agency score visualization, and AI-powered insights to help traders improve their performance.
 
 ## Project-Specific Rules
 
@@ -13,13 +13,14 @@ A production-ready full-stack boilerplate for building AI-powered applications. 
 - Frontend validation uses **Zod** schemas; backend validation uses **Pydantic** models
 - Auth logic lives exclusively in the **frontend** (Next.js API routes + Drizzle); the backend handles **AI/ML only**
 - All CopilotKit traffic flows through the Next.js `/api/copilotkit` proxy -- the FastAPI backend is never exposed directly to the browser
+- **Trading-specific:** Trade extraction agent parses natural language for direction (long/short), outcome (win/loss/breakeven), P&L, setup description, discipline score, and agency score
 
 ---
 
 ## Project Structure
 
 ```
-boilerplate/
+aurelius-ledger/
 ├── .env.example                    # All required environment variables
 ├── docker-compose.yml              # Three-service orchestration
 ├── scripts/
@@ -56,13 +57,13 @@ boilerplate/
 
 ## Design System
 
-The UI is a **dark, professional trading aesthetic** — high contrast, information-dense, no decorative clutter. The visual identity uses a dual-color system: **amber for strategy/action** and **violet for mind/psychology**.
+The UI is a **dark, professional trading aesthetic** — high contrast, information-dense, no decorative clutter. The visual identity uses a dual-color system: **blue for execution/trades** and **rose for insights/psychology**.
 
 ---
 
 ### Theme Architecture
 
-Theme variables live in `frontend/src/globals.css` as OKLCH CSS custom properties. ShadCN components consume them via `--primary`, `--secondary`, etc. Raw Tailwind color classes (`amber-*`, `violet-*`, `slate-*`) are used directly for glows, gradients, and decorative elements.
+Theme variables live in `frontend/src/globals.css` as OKLCH CSS custom properties. ShadCN components consume them via `--primary`, `--secondary`, etc. Raw Tailwind color classes (`blue-*`, `orange-*`, `slate-*`) are used directly for glows, gradients, and decorative elements.
 
 ```
 globals.css (oklch vars)
@@ -72,7 +73,7 @@ globals.css (oklch vars)
 
 **Two separate color systems are used intentionally:**
 - **ShadCN theme vars** (`bg-primary`, `text-secondary-foreground`) — for interactive UI components (Button, Input, Card)
-- **Raw Tailwind classes** (`bg-amber-600`, `text-violet-400`) — for marketing surfaces, glows, gradients, and decorative accents
+- **Raw Tailwind classes** (`bg-blue-600`, `text-rose-400`) — for marketing surfaces, glows, gradients, and decorative accents
 
 ---
 
@@ -89,33 +90,33 @@ globals.css (oklch vars)
 | Dim text | `text-slate-400` | `#94A3B8` |
 | Faint text / meta | `text-slate-500` | `#64748B` |
 
-#### Amber — Strategy, Action, The General
+#### Blue — Execution, Trades
 
 | Use | Class |
 |-----|-------|
-| Logo, brand accent | `from-amber-400 to-amber-700` (gradient) |
-| Primary CTA button | `bg-amber-600 hover:bg-amber-500` |
-| Headline gradient | `from-amber-200 via-amber-400 to-amber-700` |
-| Active tab | `bg-amber-600` |
-| Icon / label | `text-amber-500` |
-| Ambient glow | `bg-amber-600/10 blur-[120px]` |
-| Active border | `border-amber-500/20` |
-| Carousel dots | `bg-amber-500` (active), `bg-slate-800` (inactive) |
-| Attribution / byline | `text-amber-500` |
+| Logo, brand accent | `from-blue-400 to-blue-700` (gradient) |
+| Primary CTA button | `bg-blue-600 hover:bg-blue-500` |
+| Headline gradient | `from-blue-200 via-blue-400 to-blue-700` |
+| Active tab | `bg-blue-600` |
+| Icon / label | `text-blue-500` |
+| Ambient glow | `bg-blue-600/10 blur-[120px]` |
+| Active border | `border-blue-500/20` |
+| Carousel dots | `bg-blue-500` (active), `bg-slate-800` (inactive) |
+| Attribution / byline | `text-blue-500` |
 
-#### Violet — Mind, Psychology, The Philosopher
+#### Rose — Insights, Psychology
 
 | Use | Class |
 |-----|-------|
-| Active tab | `bg-violet-600` |
-| Icon / label | `text-violet-400` |
-| Feature card hover border | `hover:border-violet-500/30` |
-| Icon bg | `bg-violet-500/10 border-violet-500/20` |
-| Headline gradient | `from-violet-200 via-violet-400 to-indigo-500` |
-| Ambient glow | `bg-violet-600/10 blur-[120px]` |
-| Progress bar fill | `from-violet-500 to-red-500` (critical state) |
-| Badge / tag | `bg-violet-500/10 border-violet-500/20 text-violet-400` |
-| Subtle panel bg | `bg-violet-500/5 border-violet-500/10` |
+| Active tab | `bg-rose-600` |
+| Icon / label | `text-rose-400` |
+| Feature card hover border | `hover:border-rose-500/30` |
+| Icon bg | `bg-rose-500/10 border-rose-500/20` |
+| Headline gradient | `from-rose-200 via-rose-400 to-red-500` |
+| Ambient glow | `bg-rose-600/10 blur-[120px]` |
+| Progress bar fill | `from-rose-500 to-red-500` (critical state) |
+| Badge / tag | `bg-rose-500/10 border-rose-500/20 text-rose-400` |
+| Subtle panel bg | `bg-rose-500/5 border-rose-500/10` |
 
 ---
 
@@ -142,15 +143,15 @@ Fonts are configured in `globals.css`:
 #### Ambient Glow (hero, CTA backgrounds)
 ```tsx
 <div className="absolute inset-0 pointer-events-none">
-  <div className="absolute top-1/4 left-1/3 -translate-x-1/2 w-[600px] h-[400px] bg-amber-600/10 blur-[120px] rounded-full" />
-  <div className="absolute top-1/3 right-1/4 translate-x-1/2 w-[600px] h-[400px] bg-violet-600/10 blur-[120px] rounded-full" />
+  <div className="absolute top-1/4 left-1/3 -translate-x-1/2 w-[600px] h-[400px] bg-blue-600/10 blur-[120px] rounded-full" />
+  <div className="absolute top-1/3 right-1/4 translate-x-1/2 w-[600px] h-[400px] bg-rose-600/10 blur-[120px] rounded-full" />
 </div>
 ```
 
 #### Feature Card
 ```tsx
-<div className="rounded-3xl border border-slate-800 bg-slate-950/50 p-10 flex flex-col gap-6 hover:border-violet-500/30 transition-colors group">
-  <div className="w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:scale-110 transition-transform">
+<div className="rounded-3xl border border-slate-800 bg-slate-950/50 p-10 flex flex-col gap-6 hover:border-rose-500/30 transition-colors group">
+  <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
     <Icon size={28} />
   </div>
   <h3 className="text-2xl font-bold text-white">Title</h3>
@@ -160,25 +161,25 @@ Fonts are configured in `globals.css`:
 
 #### Badge / Tag (inline — no ShadCN Badge component)
 ```tsx
-<span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-bold uppercase tracking-[0.2em]">
+<span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold uppercase tracking-[0.2em]">
   Label
 </span>
 ```
 
-#### Tab Switcher (amber / violet)
+#### Tab Switcher (blue / rose)
 ```tsx
 <div className="flex bg-slate-900/50 p-1 rounded-3xl">
   <button className={`flex-1 py-3 text-[10px] font-black tracking-[0.2em] rounded-2xl transition-all ${
-    active === "a" ? "bg-amber-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
-  }`}>THE GENERAL</button>
+    active === "a" ? "bg-blue-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
+  }`}>EXECUTION</button>
   <button className={`flex-1 py-3 text-[10px] font-black tracking-[0.2em] rounded-2xl transition-all ${
-    active === "b" ? "bg-violet-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
-  }`}>THE PHILOSOPHER</button>
+    active === "b" ? "bg-rose-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
+  }`}>INSIGHTS</button>
 </div>
 ```
 
 #### ShadCN Button — when to use
-Use ShadCN `Button` when the element **navigates** (paired with `asChild` + Next.js `Link`) or needs standard interactive variants (`outline`, `ghost`, `secondary`). Use native `<button>` with raw Tailwind for custom-styled CTAs (amber/violet pills, dark rounded-full variants).
+Use ShadCN `Button` when the element **navigates** (paired with `asChild` + Next.js `Link`) or needs standard interactive variants (`outline`, `ghost`, `secondary`). Use native `<button>` with raw Tailwind for custom-styled CTAs (blue/rose pills, dark rounded-full variants).
 
 ---
 
@@ -188,12 +189,12 @@ The primary and secondary hue pair is defined once in `frontend/src/globals.css`
 
 ```css
 :root {
-  --primary: oklch(0.75 0.18 55);   /* hue 55 = amber */
-  --secondary: oklch(0.55 0.2 290); /* hue 290 = violet */
+  --primary: oklch(0.6 0.15 235);  /* hue 235 = blue */
+  --secondary: oklch(0.55 0.18 350); /* hue 350 = rose */
 }
 .dark {
-  --primary: oklch(0.75 0.18 55);
-  --secondary: oklch(0.55 0.2 290);
+  --primary: oklch(0.6 0.15 235);
+  --secondary: oklch(0.55 0.18 350);
 }
 ```
 
@@ -203,19 +204,20 @@ The primary and secondary hue pair is defined once in `frontend/src/globals.css`
 |-------|-----|
 | Amber / Gold | `55` |
 | Orange | `35` |
+| Orange-Red | `20` |
+| Red-Violet / Rose | `350` |
 | Green / Emerald | `145` |
 | Teal / Cyan | `195` |
-| Blue | `230` |
+| Blue | `235` |
 | Violet / Purple | `290` |
-| Pink / Rose | `350` |
 
-Example — switching to **teal + blue**:
+Example — switching to **emerald + teal**:
 ```css
---primary: oklch(0.75 0.18 195);   /* teal */
---secondary: oklch(0.55 0.2 230);  /* blue */
+--primary: oklch(0.6 0.15 145);   /* emerald */
+--secondary: oklch(0.55 0.18 175); /* teal */
 ```
 
-After changing the CSS vars, also update any **hardcoded raw Tailwind classes** in the page components — search for `amber-` and `violet-` and replace with the corresponding Tailwind color scale for your new hues. The glow divs, gradient spans, badge borders, and tab switcher backgrounds all use raw classes and must be updated manually.
+After changing the CSS vars, also update any **hardcoded raw Tailwind classes** in the page components — search for `blue-` and `rose-` and replace with the corresponding Tailwind color scale for your new hues. The glow divs, gradient spans, badge borders, and tab switcher backgrounds all use raw classes and must be updated manually.
 
 ---
 
