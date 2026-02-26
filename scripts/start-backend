@@ -2,8 +2,10 @@
 set -e
 WORKTREE_ROOT="${WM_WORKTREE_PATH:-$(cd "$(dirname "$0")/.." && pwd)}"
 set -a
-[ -f "${WORKTREE_ROOT}/backend/.env" ]       && source "${WORKTREE_ROOT}/backend/.env"
-[ -f "${WORKTREE_ROOT}/backend/.env.local" ] && source "${WORKTREE_ROOT}/backend/.env.local"
+[ -f "${WORKTREE_ROOT}/.env" ]                 && source "${WORKTREE_ROOT}/.env"
+[ -f "${WORKTREE_ROOT}/.env.local" ]           && source "${WORKTREE_ROOT}/.env.local"
+[ -f "${WORKTREE_ROOT}/backend/.env" ]         && source "${WORKTREE_ROOT}/backend/.env"
+[ -f "${WORKTREE_ROOT}/backend/.env.local" ]   && source "${WORKTREE_ROOT}/backend/.env.local"
 set +a
 cd "${WORKTREE_ROOT}/backend"
 exec uv run uvicorn src.main:app --host 0.0.0.0 --port "${BACKEND_PORT:-8000}" --reload

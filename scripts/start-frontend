@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -e
+WORKTREE_ROOT="${WM_WORKTREE_PATH:-$(cd "$(dirname "$0")/.." && pwd)}"
+set -a
+[ -f "${WORKTREE_ROOT}/.env" ]              && source "${WORKTREE_ROOT}/.env"
+[ -f "${WORKTREE_ROOT}/.env.local" ]        && source "${WORKTREE_ROOT}/.env.local"
+[ -f "${WORKTREE_ROOT}/frontend/.env" ]     && source "${WORKTREE_ROOT}/frontend/.env"
+[ -f "${WORKTREE_ROOT}/frontend/.env.local" ] && source "${WORKTREE_ROOT}/frontend/.env.local"
+set +a
+cd "${WORKTREE_ROOT}/frontend"
+exec pnpm dev --port "${FRONTEND_PORT:-3000}"
