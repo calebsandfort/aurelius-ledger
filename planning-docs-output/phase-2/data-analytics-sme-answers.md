@@ -1,459 +1,447 @@
-# Data Analytics SME Answers: Cross-SME Questions
+# Data Analytics SME Answers (Phase 2)
 
-*Answers prepared for Phase 2 of the Aurelius Ledger requirements elaboration workflow.*
+## Overview
+
+This document provides answers to questions from the AI/NLP SME and Behavioral Psychology SME regarding data analytics, visualization, and database concerns for the Aurelius Ledger dashboard.
 
 ---
 
 ## From AI/NLP SME
 
-### Question 1: Dashboard Layout
+### Question 1: Dashboard Real-Time Updates
 
-**For a trader during live sessions, what is the optimal chart arrangement? Should P&L be prominent with scores as secondary, or should behavioral metrics be equally visible?**
+**Context:** Handling rapid trade submissions (e.g., a trader logging multiple trades quickly). Should updates be debounced, or is immediate refresh acceptable?
 
 **Answer:**
 
-I recommend a **P&L-prominent layout with behavioral metrics as secondary but equally visible**. Here's the optimal arrangement:
+**Recommendation: Immediate refresh with optimistic UI updates**
 
-```
-+------------------------------------------+----------------------------------+
-|  HEADER BAR: Session P&L | Win Rate      |  Session Duration | Trade Count |
-|  ($XXX.XX green/red)  | (XX% color)      |  (Xh Xm)          |  (X trades) |
-+------------------------------------------+----------------------------------+
-|                                          |                                  |
-|     CUMULATIVE P&L CHART                 |     DISCIPLINE SCORE CHART       |
-|     (Primary Focus - 60% width)          |     (Secondary - 40% width)      |
-|     Green/red gradient fill area         |     Step chart, blue/amber      |
-|                                          |                                  |
-+------------------------------------------+----------------------------------+
-|                                          |                                  |
-|     AGENCY SCORE CHART                   |     AI INSIGHTS PANEL            |
-|     (Tertiary - 40% width)              |     (Collapsible - 60% width)    |
-|     Step chart, blue/amber              |     3 bullet points max          |
-|                                          |                                  |
-+------------------------------------------+----------------------------------+
-```
+For a trading journal where trades are typically logged after execution (not during active market participation), immediate refresh is the correct approach. Here's the reasoning:
 
-**Rationale:**
+1. **Latency is minimal**: Each trade is a discrete event, and the database insert + aggregation recalculation should complete in <50ms for local SQLite. There's no need to debounce.
 
-1. **P&L primary**: Financial performance is the trader's primary concern during live sessions. The cumulative P&L chart should occupy 50-60% of viewport width and be positioned top-left.
+2. **Optimistic UI pattern**: Show the trade data immediately in the chart before server confirmation. This provides instant feedback without waiting for round-trip completion.
 
-2. **Behavioral secondary but visible**: Discipline and agency scores should NOT be hidden, but they should not compete with P&L for attention. The Behavioral Psychology SME correctly notes that loss aversion can be exacerbated by over-emphasizing P&L, but completely hiding it would ignore the trader's primary motivation.
+3. **Debouncing is appropriate for**: User typing in input fields, window resize events, or scroll position changes — not for discrete data submissions.
 
-3. **Side-by-side comparison**: Placing discipline and agency charts adjacent allows traders to visually correlate behavioral patterns with outcomes without switching views.
+4. **Implementation approach**:
+   ```typescript
+   // Client-side: Immediate visual update
+   const handleTradeSubmit = async (tradeData) => {
+     // 1. Optimistically update chart state
+     setDashboardState(prev => ({
+       ...prev,
+       trades: [...prev.trades, { ...tradeData, sequenceNumber: prev.trades.length + 1 }],
+       aggregates: computeAggregates([...prev.trades, tradeData])
+     }))
 
-4. **Header bar for 1-second assessment**: Before charts load, the header provides immediate situational awareness with the six key metrics I defined in my Phase 1 analysis.
+     // 2. Background API call
+     await api.post('/trades', tradeData)
+
+     // 3. Sync with server response (for consistency)
+     await refreshDashboard()
+   }
+   ```
+
+5. **What to debounce instead**: The insights regeneration should NOT fire on every keystroke in the trade description field — only after the full submission.
 
 ---
 
-### Question 2: Real-Time Updates
+### Question 2: Chart Visualization for Scores
 
-**Should charts animate/transition smoothly when new data arrives, or is instant update preferable for "at a glance" assessment during fast markets?**
+**Context:** Requirements specify "running sum" for discipline and agency. Would a moving average or trend line be more informative? Should the charts show individual trade scores alongside the running sum?
 
 **Answer:**
 
-**Use instant updates with subtle smooth transitions (150-200ms), NOT full animations.**
+**Recommendation: Running sum as primary, with individual trade markers visible on hover**
 
-**Implementation Recommendation:**
+The running sum is the correct primary visualization for discipline and agency scores. Here's why and how to enhance it:
 
-```typescript
-// Recommended chart update strategy
-const chartUpdateConfig = {
-  // For fast market conditions: instant update with no animation
-  // For normal conditions: 150ms ease-out transition
-  transitionDuration: isFastMarket ? 0 : 150,
+1. **Running sum advantages**:
+   - Cumulative scores show the trajectory of behavioral quality over the session
+   - Easy to understand at a glance: above 0 = net positive, below 0 = net negative
+   - Aligns with the psychological concept of "banking" good vs. bad decisions
 
-  // Key behavior: new data point appears immediately
-  // Previous line "jumps" to new value, no morphing
-  animationType: 'jump', // not 'morph' or 'interpolate'
+2. **What to add alongside the running sum**:
+   - **Individual trade markers** (dots) at each data point on the line
+   - **Hover tooltip** showing: trade number, individual score (+1/-1/0), and cumulative total
+   - **Color-coded segments**: Connect lines between points with colors matching the individual score (green line for +1, red for -1, gray for 0)
 
-  // Pulse effect on most recent point (subtle, not distracting)
-  latestPointHighlight: {
-    enabled: true,
-    duration: 800,
-    opacity: 0.6
-  }
-};
-```
+3. **Moving average alternative**: Consider a 3-trade moving average as a **secondary overlay** that can be toggled on. This smooths noise and shows the short-term trend more clearly.
 
-**Why Instant Updates:**
+4. **Visual mockup**:
+   ```
+   Y-axis: Cumulative Score
+   |
+   |        /--(+1)         /--(+1)
+   |       /              /
+   |------/----(-1)------/------(+1)
+   |     /
+   |----(+1)
+   |
+   +-------------------------------- X-axis: Trade #
+   ```
 
-| Factor | Analysis |
-|--------|----------|
-| **Cognitive load** | In fast markets, traders need instant feedback. Animation delays perception by 100-300ms |
-| **Accuracy perception** | Traders trust instant updates more than animated transitions (which can feel like "spin") |
-| **Performance** | Smooth animations at 60fps require more GPU; instant updates are lighter on low-end devices |
-| **Noise reduction** | Rapid-fire animations create visual noise; instant updates are cleaner |
-
-**Exception:** Use smooth 300ms transitions when:
-- Session first loads (data hydrate)
-- User returns after tab was inactive
-- User explicitly requests "replay" of session
+5. **Implementation notes**:
+   - The step chart approach (from my Phase 1 analysis) still applies
+   - Add a toggle for "Show moving average" in chart options
+   - Default to running sum only for cleanest initial view
 
 ---
 
-### Question 3: Insight Display Location
+### Question 3: Insights Caching Strategy
 
-**Where in the UI should insights appear? A persistent sidebar takes space but provides constant reference; a collapsible panel keeps UI clean but requires action to view.**
+**Context:** Insights are regenerated after each trade. What's the recommended cache invalidation strategy? Should insights be cached by trade count?
 
 **Answer:**
 
-**Recommended: Collapsible panel with "peek" behavior**
+**Recommendation: Cache by session ID + trade count + timestamp hash**
 
-```
-Layout: Insights as right-side collapsible panel (320px width)
+The insights should regenerate when there is new data, not on every dashboard refresh. Here is the recommended caching strategy:
 
-[Dashboard Charts Area]  |  [Insights Panel]
-                         |  +----------------------+
-                         |  | AI INSIGHTS     [_]  |  <- Header (always visible)
-                         |  +----------------------+
-                         |  | • Tilt risk: 2       |  <- Always visible (collapsed shows 1 line)
-                         |  |   consecutive losses |
-                         |  | • Discipline: -2     |  <- Always visible
-                         |  |   trend declining    |
-                         |  | • Your patient      |  <- Expandable
-                         |  |   entries: 75% win   |
-                         |  +----------------------+
-                         |  [Expand for more]    |  <- Collapsed state
-```
+1. **Cache key structure**:
+   ```typescript
+   const insightsCacheKey = {
+     sessionId: string,        // Current trading session
+     tradeCount: number,       // Number of trades in session
+     lastTradeTimestamp: Date  // Hash of last trade time
+   }
+   ```
 
-**Recommended Behaviors:**
+2. **Invalidation logic**:
+   ```
+   IF current_trade_count != cached_trade_count
+      THEN regenerate insights
+   ELSE IF current_last_trade_time != cached_last_trade_time
+      THEN regenerate insights
+   ELSE
+      RETURN cached insights
+   ```
 
-1. **Default state: Peek (1 insight visible)**
-   - Show only the highest-priority insight by default
-   - Single line visible, e.g., "Tilt Risk: 2 consecutive losses"
-   - Trader can process in <1 second without leaving the main view
+3. **Storage location**: Server-side in-memory cache (or Redis if distributed). Not client-side, because insights are generated server-side.
 
-2. **Expand on click (full panel)**
-   - Click anywhere on insight header to expand
-   - Shows up to 3 insights with brief descriptions
-   - Auto-collapse after 30 seconds of inactivity
+4. **Cache TTL**: For Phase 1, no time-based expiration within an active session. Insights persist until the session ends or a new trade is added.
 
-3. **Persistent but non-blocking**
-   - Does NOT take focus away from charts
-   - Can be read while watching price action
-   - Does not interrupt natural scanning pattern (left-to-right, top-to-bottom)
+5. **What NOT to cache by**:
+   - Do NOT cache by user ID alone (stale data problem)
+   - Do NOT cache by timestamp alone (unnecessary regenerations)
 
-4. **Mobile: Bottom sheet instead of sidebar**
-   - Despite HLRD excluding mobile, responsive design should use bottom sheet
-   - Swipe up to reveal, swipe down to dismiss
+6. **Implementation pseudo-code**:
+   ```python
+   def get_insights(session_id: str) -> Insights:
+       cache_key = f"insights:{session_id}"
+       cached = redis.get(cache_key)
+
+       current_trade_count = get_trade_count(session_id)
+       last_trade_time = get_last_trade_time(session_id)
+
+       if cached and cached.trade_count == current_trade_count:
+           return cached.insights
+
+       # Cache miss or stale — regenerate
+       trades = get_trades_for_session(session_id)
+       insights = generate_insights(trades)
+
+       redis.set(cache_key, {
+           "insights": insights,
+           "trade_count": current_trade_count,
+           "last_trade_time": last_trade_time
+       })
+
+       return insights
+   ```
 
 ---
 
 ## From Behavioral Psychology SME
 
-### Question 1: Real-Time Charting Performance
+### Question 4: Real-Time Aggregation Queries
 
-**What's the optimal polling interval or WebSocket approach for updating cumulative P&L and score charts without causing UI jank during active trading?**
+**Context:** What database queries will efficiently compute running aggregates (discipline sum, P&L, win/loss count) after each trade insertion? Should we use materialized views or computed columns?
 
 **Answer:**
 
-**Use WebSocket with adaptive throttling, not polling.**
+**Recommendation: Pre-computed aggregate columns on the session table (NOT materialized views or runtime queries)**
 
-**Recommended Architecture:**
+For Phase 1 with SQLite, the most efficient approach is storing aggregates directly on the session record and updating them on each trade insert.
 
-```typescript
-// WebSocket message types
-interface TradeUpdate {
-  type: 'trade_added' | 'trade_updated' | 'session_summary';
-  payload: {
-    tradeId: string;
-    pnl: number;
-    cumulativePnl: number;
-    disciplineScore: number;
-    agencyScore: number;
-    timestamp: string;
-  };
-}
+1. **Schema approach**:
+   ```sql
+   CREATE TABLE trading_sessions (
+       id TEXT PRIMARY KEY,
+       date TEXT NOT NULL,
+       total_pnl REAL DEFAULT 0,
+       win_count INTEGER DEFAULT 0,
+       loss_count INTEGER DEFAULT 0,
+       breakeven_count INTEGER DEFAULT 0,
+       net_discipline_score INTEGER DEFAULT 0,
+       net_agency_score INTEGER DEFAULT 0,
+       trade_count INTEGER DEFAULT 0,
+       created_at TEXT,
+       updated_at TEXT
+   );
 
-// Adaptive throttling strategy
-const updateStrategy = {
-  // During active trading (trade logged in last 30 seconds):
-  // - Send every update immediately
-  // - Batch multiple updates within 100ms window
+   CREATE TABLE trades (
+       id TEXT PRIMARY KEY,
+       session_id TEXT REFERENCES trading_sessions(id),
+       sequence_number INTEGER NOT NULL,
+       timestamp TEXT NOT NULL,
+       direction TEXT NOT NULL,
+       outcome TEXT NOT NULL,
+       pnl REAL NOT NULL,
+       discipline_score INTEGER NOT NULL,
+       agency_score INTEGER NOT NULL,
+       setup_description TEXT,
+       created_at TEXT
+   );
 
-  // Idle state (no trades for 30+ seconds):
-  // - Reduce to heartbeat every 10 seconds
+   CREATE INDEX idx_trades_session ON trades(session_id, sequence_number);
+   ```
 
-  // Fast market mode (detected by high trade frequency):
-  // - Throttle to max 2 updates/second
-};
+2. **Update logic on trade insert** (transactional):
+   ```sql
+   BEGIN TRANSACTION;
 
-function handleTradeUpdate(update: TradeUpdate) {
-  if (isFastMarket) {
-    // Throttle to prevent UI jank
-    throttle(() => renderChart(update), 500);
-  } else {
-    // Immediate update
-    renderChart(update);
-  }
-}
-```
+   INSERT INTO trades (id, session_id, sequence_number, ...) VALUES (...);
 
-**WebSocket vs Polling Comparison:**
+   UPDATE trading_sessions SET
+       total_pnl = total_pnl + NEW.pnl,
+       trade_count = trade_count + 1,
+       win_count = win_count + CASE WHEN NEW.outcome = 'win' THEN 1 ELSE 0 END,
+       loss_count = loss_count + CASE WHEN NEW.outcome = 'loss' THEN 1 ELSE 0 END,
+       breakeven_count = breakeven_count + CASE WHEN NEW.outcome = 'breakeven' THEN 1 ELSE 0 END,
+       net_discipline_score = net_discipline_score + NEW.discipline_score,
+       net_agency_score = net_agency_score + NEW.agency_score,
+       updated_at = datetime('now')
+   WHERE id = NEW.session_id;
 
-| Approach | Latency | Server Load | UI Jank Risk | Reliability |
-|----------|---------|-------------|--------------|-------------|
-| **WebSocket (recommended)** | <50ms | Low (persistent connection) | Low (controlled rendering) | High |
-| Short polling (1s) | ~1000ms | High | Medium | Medium |
-| Long polling | ~500ms | Very High | Medium | Medium |
-| Server-Sent Events | <50ms | Low | Low | High |
+   COMMIT;
+   ```
 
-**Technical Implementation:**
+3. **Why NOT materialized views**:
+   - SQLite does not have native materialized view support
+   - Overhead for a simple sum/count across a small table
+   - Adds complexity without benefit for Phase 1
 
-1. **Use requestAnimationFrame for chart updates** - Ensures updates sync with browser paint cycle
-2. **Debounce chart re-renders** - Wait 100ms after last WebSocket message before re-rendering
-3. **Separate data fetch from render** - Store updates in React state, render on next paint
-4. **WebSocket fallback to polling** - If WebSocket fails, degrade to 2-second polling gracefully
+4. **Why NOT computed columns**:
+   - Computed columns in SQLite are calculated at read time (not stored)
+   - Would require scanning all trades for every dashboard load
+   - Our approach of updating on insert is O(1) per trade, O(1) per read
+
+5. **Dashboard query**:
+   ```sql
+   SELECT * FROM trading_sessions WHERE id = ?;
+   SELECT * FROM trades WHERE session_id = ? ORDER BY sequence_number;
+   ```
+   Single-row session fetch + indexed trades fetch = <10ms for typical sessions.
 
 ---
 
-### Question 2: Data Visualization Hierarchy
+### Question 5: Chart Library Recommendations
 
-**Should the P&L chart be visually dominant (green/red colors), or should discipline/agency take equal visual weight? Research suggests color-based P&L reinforcement can exacerbate loss aversion.**
-
-**Answer:**
-
-**P&L should be visually prominent, but with behavioral psychology-informed design that mitigates loss aversion.**
-
-**Recommended Hierarchy:**
-
-| Element | Visual Weight | Color Strategy |
-|---------|---------------|----------------|
-| **Cumulative P&L** | Primary (largest chart, top position) | Green (#22c55e) / Red (#ef4444) |
-| **Discipline Score** | Secondary (equal size, adjacent) | Blue (#3b82f6) / Amber (#f59e0b) - NOT red |
-| **Agency Score** | Secondary (equal size, adjacent) | Blue (#3b82f6) / Amber (#f59e0b) - NOT red |
-
-**Mitigation Strategies for Loss Aversion:**
-
-1. **Use blue/amber for behavioral scores** - NOT red for negative. This prevents the "everything is red" spiral effect that amplifies loss aversion.
-
-2. **P&L chart: Gradient area, not solid fill** - A subtle gradient (e.g., green fading to transparent) is less emotionally striking than solid blocks of red.
-
-3. **Zero-line emphasis** - The y=0 reference line should be the most prominent visual element in the P&L chart. This frames the question as "above or below zero" rather than "how much red."
-
-4. **Cumulative trend, not daily change** - Showing cumulative P&L (running total) rather than daily change focuses on the overall trajectory, which is more stable and less reactive to individual losses.
-
-5. **Hide dollar amounts during active trading** - Show "$XXX" or "$+XXX" but avoid showing the exact delta on each trade update. Show cumulative total prominently, not the change from last trade.
-
-**Anti-Patterns to Avoid:**
-- Flashing red on every loss
-- Large negative numbers in bold red text
-- "Loss streak" visual indicators (red X's)
-- Sound effects on losses (if ever considered)
-
----
-
-### Question 3: Insight Panel Layout
-
-**Should insights appear as a sidebar, overlay, or separate panel? What's the optimal information density for a trader who has 1-2 seconds to glance at the dashboard?**
+**Context:** What chart library/approach do you recommend for the time-series charts given the Next.js + Shadcn/ui + Tailwind stack?
 
 **Answer:**
 
-**Collapsible right panel with "peek" state - optimized for 1-2 second glances.**
+**Recommendation: Recharts or Tremor (both React-native, work well with Shadcn/ui)**
 
-**Information Density Guidelines:**
+For Next.js + Shadcn/ui + Tailwind, here are the best options:
 
-| Element | Content | Time to Process |
-|---------|---------|-----------------|
-| **Peek state** | 1 insight, 1 line | <1 second |
-| **Expanded state** | 3 insights, 1 sentence each | <3 seconds |
-| **Full panel** | 5+ insights, detailed | >5 seconds (post-session only) |
+| Library | Pros | Cons |
+|---------|------|------|
+| **Recharts** | Most popular, excellent docs, customizable | Bundle size ~40KB |
+| **Tremor** | Built for dashboards, Shadcn-like aesthetic | Less flexible |
+| **Chart.js** | Mature, many chart types | Not React-native (wrapper) |
+| **Visx** | Low-level, Airbnb-built | Steeper learning curve |
 
-**Design Specifications:**
+**Primary recommendation: Recharts** for these reasons:
+1. Native React components (no wrapper needed)
+2. Excellent TypeScript support
+3. Highly customizable styling via props
+4. Works well with Tailwind for colors
+5. Active maintenance
 
+**Secondary recommendation: Tremor** if you want out-of-the-box dashboard components that match Shadcn's design philosophy.
+
+**Implementation example with Recharts**:
 ```tsx
-// Peek state (default during trading)
-<InsightPanel defaultCollapsed={false}>
-  <InsightItem priority="high">
-    <Icon>warning</Icon>
-    <Text>Discipline: 2-trade decline</Text>  // 1 second to read
-  </InsightItem>
-</InsightPanel>
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 
-// Expanded state (on click)
-<InsightPanel expanded={true}>
-  <InsightItem priority="high">
-    <Icon>warning</Icon>
-    <Text>Discipline: 2-trade decline</Text>
-    <Subtext>Consider pausing before next entry</Subtext>
-  </InsightItem>
-  <InsightItem priority="medium">
-    <Icon>trending</Icon>
-    <Text>Win rate: 67% on patient entries</Text>
-  </InsightItem>
-  <InsightItem priority="low">
-    <Icon>info</Icon>
-    <Text>Setup consistency: 80%</Text>
-  </InsightItem>
-</InsightPanel>
+const DisciplineChart = ({ trades }) => {
+  const data = trades.map((trade, idx) => ({
+    tradeNumber: idx + 1,
+    cumulativeScore: trades.slice(0, idx + 1).reduce((sum, t) => sum + t.disciplineScore, 0),
+    individualScore: trade.disciplineScore
+  }));
+
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <LineChart data={data}>
+        <XAxis dataKey="tradeNumber" stroke="#94a3b8" />
+        <YAxis stroke="#94a3b8" />
+        <Tooltip
+          content={({ payload }) => (
+            <div className="bg-slate-800 p-2 rounded border border-slate-700">
+              <p>Trade #{payload[0]?.payload?.tradeNumber}</p>
+              <p>Cumulative: {payload[0]?.payload?.cumulativeScore}</p>
+              <p>Score: {payload[0]?.payload?.individualScore}</p>
+            </div>
+          )}
+        />
+        <ReferenceLine y={0} stroke="#6b7280" />
+        <Line
+          type="stepAfter"
+          dataKey="cumulativeScore"
+          stroke="#14b8a6"
+          strokeWidth={2}
+          dot={{ fill: '#14b8a6' }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+};
 ```
-
-**Key Principles:**
-
-1. **One insight visible by default** - The most critical insight should be viewable without any user action
-2. **Icon + short text format** - Icons provide instant categorization, text provides context
-3. **No paragraph text in peek mode** - Save detailed text for expanded view
-4. **Color-coded priority** - High (amber), Medium (blue), Low (gray) - but avoid red for insights
-5. **Auto-collapse after 30 seconds** - Return to peek state to reduce cognitive load
 
 ---
 
-### Question 4: Mobile Considerations
+### Question 6: No Data State Handling
 
-**The HLRD explicitly excludes mobile. However, should the dashboard be designed responsively anyway? Traders may want to check from phone during breaks.**
+**Context:** How should we handle the "no data" state for early-session (1-2 trades) where trend analysis isn't meaningful yet?
 
 **Answer:**
 
-**Yes, design responsively but prioritize the desktop experience. Mobile should be "good enough" not "feature-complete."**
+**Recommendation: Show skeleton/placeholder with explanatory message, not empty charts**
 
-**Responsive Strategy:**
+For early-session states (0-2 trades), provide meaningful UI rather than empty charts:
 
-| Breakpoint | Layout | Features |
-|------------|--------|----------|
-| **Desktop (>1200px)** | Full 2x2 grid, sidebar insights | All features |
-| **Tablet (768-1200px)** | Stacked charts (2 rows), bottom sheet insights | All features |
-| **Mobile (<768px)** | Single column, collapsible sections | Read-only with basic summary |
+1. **State 0: No trades yet**
+   - Show placeholder chart area with dashed outline
+   - Message: "Log your first trade to begin tracking"
+   - Entry input should be prominent and inviting
 
-**Mobile Implementation Notes:**
+2. **State 1: Single trade**
+   - Show the single trade as a single point on the chart
+   - Message below chart: "1 trade logged — patterns emerge with more data"
+   - Show the individual P&L and scores numerically
 
-1. **Not for active trading** - Mobile should be read-only (view P&L, past trades, session summary). No trade entry on mobile.
+3. **State 2: Two trades**
+   - Show line connecting the two points
+   - Message: "2 trades — early indicators forming"
+   - Show comparison: "Trade 1 vs Trade 2: Discipline +1 vs 0"
 
-2. **Simplified dashboard** - On mobile, show:
-   - Session P&L (large, prominent)
-   - Win rate
-   - Trade count
-   - Last 3 insights (collapsed by default)
+4. **Threshold for meaningful trends**: At 5+ trades, trend lines become statistically more meaningful. Show this threshold clearly in UI.
 
-3. **Do NOT implement:**
-   - Real-time WebSocket updates on mobile (battery/data)
-   - Full chart interactions (too small)
-   - Full insights panel
+5. **Implementation**:
+   ```tsx
+   const ChartPlaceholder = ({ tradeCount }) => {
+     const messages = {
+       0: "Log your first trade to begin tracking",
+       1: "1 trade logged — patterns emerge with more data",
+       2: "2 trades — early indicators forming"
+     };
 
-4. **Use responsive, not adaptive** - Same components, rearranged. This reduces development cost while still providing basic mobile access.
+     if (tradeCount < 3) {
+       return (
+         <div className="flex flex-col items-center justify-center h-48 border-2 border-dashed border-slate-600 rounded-lg">
+           <p className="text-slate-400">{messages[tradeCount]}</p>
+         </div>
+       );
+     }
 
-5. **CSS Grid with media queries** - Much simpler than building separate mobile views:
-```css
-@media (max-width: 768px) {
-  .dashboard-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-  }
-
-  .chart-container {
-    min-height: 200px; /* Smaller charts on mobile */
-  }
-}
-```
+     return <ActualChart />;
+   };
+   ```
 
 ---
 
-### Question 5: Data Retention Strategy
+### Question 7: Data Retention Policy
 
-**How long should raw trade data be retained vs. aggregated? There's a tension between long-term pattern analysis and storage costs.**
+**Context:** For Phase 1, how long should trade data be retained locally before considering archival? Should we implement any data compression for older sessions (e.g., rolling up to daily summaries after 30 days)?
 
 **Answer:**
 
-**Tiered retention strategy balancing analysis needs with storage costs:**
+**Recommendation: Phase 1 = Keep all data indefinitely, no archival**
 
-| Data Type | Retention | Storage | Use Case |
-|-----------|-----------|---------|----------|
-| **Raw trades** | 90 days hot, 365 days cold | Full resolution | Pattern analysis, AI insights |
-| **Daily aggregates** | 2 years | ~1KB/day | Trend analysis, month-over-month |
-| **Monthly aggregates** | Forever | ~30KB/year | Long-term performance tracking |
-| **Session snapshots** | 1 year | ~500B/session | Year-over-year comparison |
+For Phase 1 of Aurelius Ledger, data retention should be simple:
 
-**Recommended Implementation:**
+1. **Phase 1 approach (MVP)**:
+   - Keep ALL trade data indefinitely
+   - No time-based deletion
+   - No archival needed — the data volume is manageable
 
-```sql
--- Tiered storage strategy (TimescaleDB / PostgreSQL)
+2. **Why no archival for Phase 1**:
+   - **Learning value**: Full trade history is needed for long-term pattern analysis
+   - **Volume is low**: Even active traders generate <10,000 trades/year
+   - **Complexity**: Archival adds significant implementation complexity
+   - **Premature optimization**: Don't optimize until you have a problem
 
--- 1. Hot storage: Last 90 days of raw trades
--- Partition by trading_day, queryable with standard indexes
-CREATE TABLE trades (
-  id UUID PRIMARY KEY,
-  trading_day_id UUID REFERENCES trading_days(id),
-  description TEXT,
-  pnl DECIMAL(12,2),
-  discipline_score SMALLINT,
-  agency_score SMALLINT,
-  timestamp TIMESTAMPTZ
-) PARTITION BY RANGE (timestamp);
+3. **Estimated storage**:
+   - 10,000 trades × ~500 bytes per record = ~5MB
+   - SQLite handles this trivially
 
--- 2. Cold storage: 91-365 days (TimescaleDB hyperchunks)
--- Automatically moves to cheaper storage after 90 days
-SELECT add_retention_policy('trades', INTERVAL '90 days');
+4. **Future Phase considerations** (for roadmap):
+   - After 90 days: Consider compressing setup descriptions (NLP embeddings)
+   - After 1 year: Archive old sessions to separate table
+   - After 2 years: Daily summaries instead of individual trades
 
--- 3. Aggregated daily snapshots
-CREATE TABLE daily_summaries (
-  trading_day_id UUID PRIMARY KEY,
-  date DATE UNIQUE,
-  total_pnl DECIMAL(14,2),
-  trade_count INT,
-  win_rate DECIMAL(5,4),
-  avg_discipline_score DECIMAL(4,2),
-  avg_agency_score DECIMAL(4,2),
-  largest_win DECIMAL(12,2),
-  largest_loss DECIMAL(12,2),
-  consecutive_wins INT,
-  consecutive_losses INT
-);
-
--- 4. Monthly rollups for long-term analysis
-CREATE TABLE monthly_summaries (
-  year_month VARCHAR(7) PRIMARY KEY,  -- "2025-03"
-  total_pnl DECIMAL(14,2),
-  total_trades INT,
-  avg_daily_pnl DECIMAL(12,2),
-  sessions_count INT,
-  best_day DATE,
-  worst_day DATE
-);
-```
-
-**Rationale:**
-
-1. **90 days hot** - Sufficient for:
-   - Recent pattern analysis
-   - Session-to-session comparison
-   - AI insights generation (typically looks at last 5-20 trades)
-
-2. **365 days cold** - Required for:
-   - Year-over-year performance comparison
-   - Tax reporting (if needed)
-   - Long-term trend analysis
-
-3. **Aggregates forever** - Monthly summaries are tiny (~30 bytes) and invaluable for:
-   - Retirement/planning use cases
-   - Multi-year performance tracking
-   - No additional storage cost worth mentioning
-
-**Cost Analysis:**
-
-| Storage Tier | Est. Monthly Cost (10K trades/day) |
-|--------------|-------------------------------------|
-| Hot (RDS gp3) | ~$5/month |
-| Cold (S3 Glacier) | ~$0.10/month |
-| Aggregates | Negligible |
-
-**Export Capability:**
-- Provide JSON/CSV export for trades older than 90 days
-- Users can store locally for unlimited historical access
+5. **Data export**: Provide export functionality (CSV/JSON) so users can back up their own data if desired.
 
 ---
 
-## Summary of Recommendations
+### Question 8: Materialized Views vs Computed Columns
+
+**Context:** Performance optimization for real-time dashboard updates. Should we use materialized views or computed columns for the running aggregates?
+
+**Answer:**
+
+**Recommendation: Neither — use pre-computed columns updated at insert time**
+
+This is the most efficient approach for Phase 1:
+
+| Approach | Read Cost | Write Cost | Complexity | Recommendation |
+|----------|-----------|------------|------------|----------------|
+| Runtime aggregation (SUM/COUNT) | O(n) | O(1) | Low | No — slow |
+| Computed columns | O(n) | O(1) | Low | No — SQLite recalculates |
+| Materialized views | O(1) | O(n) | High | No — SQLite doesn't support |
+| Pre-computed columns | O(1) | O(1) | Low | YES — best for Phase 1 |
+
+**Detailed explanation**:
+
+1. **Computed columns in SQLite**: When you define a column as `GENERATED ALWAYS AS (expression)`, SQLite recalculates the expression on EVERY read. For a session with 50 trades, that's 50 calculations every time you view the dashboard.
+
+2. **Materialized views**: SQLite has no native support. You'd need to manually maintain a summary table and update it via triggers — overkill for this use case.
+
+3. **Pre-computed columns (recommended)**: Store the aggregates directly in the `trading_sessions` table and update them atomically when a trade is inserted:
+   - O(1) reads: Just `SELECT * FROM trading_sessions WHERE id = ?`
+   - O(1) writes: Single UPDATE statement increments counters
+   - Simple to implement and reason about
+
+4. **Transaction requirement**: The trade insert and aggregate update MUST be in the same transaction to maintain consistency:
+   ```sql
+   BEGIN TRANSACTION;
+   INSERT INTO trades ...;
+   UPDATE trading_sessions SET ... WHERE id = ?;
+   COMMIT;
+   ```
+
+5. **If scaling beyond Phase 1**: Consider Redis for hot aggregates, but don't add this complexity until needed.
+
+---
+
+## Summary
 
 | Question | Recommendation |
 |----------|----------------|
-| Dashboard Layout | P&L prominent (60% width), behavioral charts secondary but equally visible |
-| Real-Time Updates | Instant updates with 150ms max transition, pulse on latest point |
-| Insight Location | Collapsible right panel with peek state (1 insight visible by default) |
-| Charting Performance | WebSocket with adaptive throttling, requestAnimationFrame |
-| Visualization Hierarchy | P&L prominent, behavioral in blue/amber (not red) to mitigate loss aversion |
-| Insight Density | Peek: 1 line (<1s), Expanded: 3 items (<3s), Full: 5+ (post-session) |
-| Mobile | Responsive yes, but read-only, simplified |
-| Data Retention | 90d hot raw, 365d cold, aggregates forever |
+| Real-time updates | Immediate refresh with optimistic UI |
+| Score visualization | Running sum + individual markers + optional moving average |
+| Insights caching | Cache by session + trade count, regenerate on new trades |
+| Aggregation queries | Pre-computed columns updated on insert, not runtime queries |
+| Chart library | Recharts (primary) or Tremor (secondary) |
+| No data state | Show placeholder with encouraging message, not empty chart |
+| Data retention | Keep all data indefinitely for Phase 1 |
+| Materialized views | Not needed — use pre-computed columns instead |
 
 ---
 
-*Answers prepared by Data Analytics SME for Phase 2 of the Aurelius Ledger requirements elaboration workflow.*
+*Answers prepared by: Data Analytics SME*
+*Date: 2026-03-02*

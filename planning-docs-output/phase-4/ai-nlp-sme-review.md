@@ -1,159 +1,194 @@
-# AI/NLP SME Review: Requirements Draft
+# AI/NLP SME Review: Requirements Draft (Phase 4)
 
 ## Overview
 
-This review evaluates the requirements draft for accuracy, completeness, gaps, and conflicts within the AI/NLP domain. The requirements draft is generally well-structured and aligned with the established tech stack. However, several enhancements and clarifications are recommended.
+This review evaluates the requirements draft from the AI/NLP architecture domain perspective. The review checks for accuracy, completeness, conflicts, and gaps relative to the established tech stack (FastAPI + LangGraph + LangChain + OpenAI + CopilotKit).
 
 ---
 
-## Accuracy Assessment
+## 1. Accuracy Review
 
-### Correct and Feasible Requirements
+### 1.1 Technical Details - CORRECT
 
-| FR | Assessment |
-|-----|------------|
-| FR 2.2 | **Correct** - LangGraph-based extraction with validation step aligns with stack |
-| FR 2.3 | **Correct** - 3-5 few-shot examples is optimal for few-shot learning without excessive token consumption |
-| FR 2.4 | **Correct** - Heuristic mapping for ambiguous P&L phrases is a practical hybrid approach |
-| FR 2.5-2.6 | **Correct** - Confidence score handling with display thresholds is well-specified |
-| FR 2.7-2.8 | **Correct** - Error handling for extraction failures is appropriate |
-| FR 3.1-3.7 | **Correct** - Behavioral scoring criteria are well-defined |
-| FR 7.1-7.8 | **Correct** - Insights generation with hybrid context and prioritization is sound |
-| NFR 1.2 | **Aggressive but feasible** - 2.5s LLM timeout requires optimized prompts |
+| Requirement | Assessment | Notes |
+|-------------|------------|-------|
+| FR 2.1.1 | Correct | LangChain's `with_structured_output()` with Pydantic is the standard approach for OpenAI structured outputs |
+| FR 2.1.2 | Correct | Retry logic with up to 2 retries is appropriate |
+| FR 2.2.1 | Correct | 3-4 few-shot examples aligns with Phase 1 recommendation |
+| FR 2.2.4 | Correct | JSON Schema via OpenAI structured output is accurate |
+| FR 5.1.1-5.1.3 | Correct | Structured JSON payload format matches Phase 2 answer Q7 |
+| FR 5.2.1 | Correct | Async generation aligns with Phase 2 answer Q5 |
 
----
+### 1.2 Minor Technical Clarifications
 
-## Completeness Analysis
+**TIC 2.4** - The requirement states: "Backend endpoint SHALL use `add_langgraph_fastapi_endpoint` from `ag_ui_langgraph`"
 
-### Missing Requirements
+**Clarification needed**: The package name may be incorrect. The standard LangGraph FastAPI integration is typically from `@langchain/langgraph` or `@langchain/community`. The reference `ag_ui_langgraph` should be verified in AGENTS.md to ensure correct package name.
 
-1. **Prompt Integration for Behavioral Scoring**
-   - **Gap**: FR 3.x behavioral scoring criteria are not explicitly tied to the extraction prompt design
-   - **Recommendation**: Add FR 2.x requirement that extraction prompt includes behavioral scoring instructions as system prompt content
-
-2. **Prompt Versioning**
-   - **Gap**: No mechanism for iterating on extraction prompts based on failure analysis
-   - **Recommendation**: Add requirement for prompt version tracking in extraction logs
-
-3. **Insights Idempotency**
-   - **Gap**: FR 7.3 generates insights asynchronously; if trade save succeeds but insight generation fails, retry could produce different insights
-   - **Recommendation**: Add requirement that insights generation is idempotent or stores generated insight hash
-
-4. **Token Budget Management**
-   - **Gap**: No explicit requirement for token budget in insights context
-   - **Recommendation**: Add NFR for maximum token count in insights prompt (e.g., 2000 tokens)
-
-5. **Extraction Retry Strategy**
-   - **Gap**: NFR 2.1 mentions "retry up to 2 times" but doesn't specify strategy
-   - **Recommendation**: Clarify if retry uses same prompt, refined prompt, or escalation to different model
+**Recommendation**: Change to "from `@langchain/langgraph`" or verify the actual package name specified in AGENTS.md.
 
 ---
 
-## Gap Analysis
+## 2. Completeness Review
 
-### SME Recommendations Not Incorporated
+### 2.1 Missing Requirements - AI/NLP Domain
 
-From the requirements draft synthesis notes (lines 287-295), several SME recommendations were addressed, but the following were not explicitly included:
+| Gap | Severity | Description |
+|-----|----------|-------------|
+| Model Selection | HIGH | No requirement specifies which OpenAI model to use for extraction or insights |
+| Timeout Handling | MEDIUM | No explicit timeout for AI extraction calls |
+| API Fallback Strategy | MEDIUM | No requirement for what happens when OpenAI API is unavailable |
+| Rate Limiting | LOW | No requirements about API rate limiting protection |
+| Extraction Caching | LOW | No caching of identical trade descriptions |
+| Output Validation | MEDIUM | Schema validation exists but no business logic validation (e.g., P&L reasonable range) |
+| Observability | LOW | No requirements for logging extraction results for accuracy tracking |
 
-1. **Chain-of-Thought for Behavioral Scores**
-   - Not incorporated: Requirement for extraction LLM to provide reasoning for behavioral scores
-   - Rationale: May increase latency beyond NFR 1.2 threshold
+### 2.2 Model Selection - CRITICAL MISSING REQUIREMENT
 
-2. **Dynamic Few-Shot Selection**
-   - Not incorporated: Using retrieval-augmented example selection based on trade description similarity
-   - Rationale: Adds complexity; static few-shot is acceptable baseline
+The requirements do not specify which OpenAI model to use for:
+1. Trade extraction (FR 2.0)
+2. Insights generation (FR 5.0)
 
-3. **Confidence Calibration Feedback Loop**
-   - Not incorporated: Using user corrections to calibrate confidence thresholds
-   - Rationale: Out of scope for v1; can be enhancement
+**Current best practice recommendation**:
+- **Extraction**: `gpt-4o-mini` - optimized for speed and cost, sufficient for simple structured extraction
+- **Insights**: `gpt-4o` - better reasoning for complex behavioral analysis
 
----
-
-## Conflict Analysis
-
-### Potential Conflicts with Tech Stack
-
-| Item | Assessment | Resolution |
-|------|------------|------------|
-| CopilotKit + Insights Panel | **No conflict** - FR 5.8 and 7.x specify insights panel, compatible with CopilotKit integration | Already aligned |
-| FastAPI + LLM calls | **No conflict** - All LLM calls on backend per stack | Already aligned |
-| LangGraph + validation | **No conflict** - FR 2.2 specifies LangGraph with validation | Already aligned |
-
-### Internal Conflicts
-
-1. **NFR 1.2 (2.5s timeout) vs. FR 2.3 (5 few-shot examples)**
-   - Potential conflict: More few-shot examples increase latency
-   - Mitigation: 3-5 examples is acceptable; monitor latency in practice
-
-2. **FR 7.2 (7 trades context) vs. NFR 1.1 (3s total latency)**
-   - Potential conflict: Insufficient context for good insights
-   - Clarification: Insights generated asynchronously (FR 7.3), so NFR 1.1 applies to trade entry, not insights
+**Proposed new requirement**:
+> **FR X.X Model Selection**
+> - The system SHALL use `gpt-4o-mini` for trade extraction to optimize for latency and cost.
+> - The system SHALL use `gpt-4o` for insights generation to ensure accurate behavioral analysis.
 
 ---
 
-## Recommendations
+## 3. Conflicts Review
 
-### High Priority
+### 3.1 CopilotKit Integration Architecture
 
-1. **Add FR 2.x System Prompt Requirement**
-   ```markdown
-   - **FR 2.9** The extraction system prompt SHALL include behavioral scoring criteria (FR 3.1-3.7) as part of the extraction instructions to enable single-pass extraction of all fields.
-   ```
+**Potential conflict identified**:
 
-2. **Add NFR for Token Budget**
-   ```markdown
-   - **NFR 1.6** Insights generation prompt SHALL not exceed 2500 tokens including context.
-   ```
+| Requirement | Concern |
+|-------------|---------|
+| TIC 2.1 | "All CopilotKit traffic SHALL flow through the Next.js `/api/copilotkit` proxy" |
+| TIC 2.3 | "The trade extraction agent SHALL be implemented as a LangGraph node within the backend" |
+| FR 2.0 | Trade extraction via AI agent |
 
-3. **Clarify Extraction Retry Strategy**
-   ```markdown
-   - **NFR 2.1 (revised)** The extraction pipeline SHALL retry up to 2 times on validation failure, using a refined prompt with additional context on the second attempt, before surfacing an error.
-   ```
+**Analysis**:
+- CopilotKit is primarily designed for frontend chat UI integration (in-app copilot patterns)
+- Trade extraction is specified as a LangGraph node on FastAPI backend (traditional API pattern)
+- These are two different architectural patterns
 
-### Medium Priority
+**Resolution options**:
+1. **Option A**: Use CopilotKit for the chat interface to query insights/history, but keep extraction as direct FastAPI call
+2. **Option B**: Implement extraction as a CopilotKit action that proxies to the backend
 
-4. **Add Prompt Versioning Log**
-   ```markdown
-   - **NFR 25** Extraction logs SHALL include prompt version identifier for analysis and iteration.
-   ```
+**Recommendation**: The requirements should clarify that CopilotKit handles the insights panel and natural language queries, while extraction goes through direct API call (as per TIC 2.3). This is a valid hybrid approach.
 
-5. **Add Insights Idempotency**
-   ```markdown
-   - **FR 7.9** Generated insights SHALL be stored with the trade record to prevent regeneration on retry.
-   ```
+### 3.2 Timing Requirements - CONSISTENT
 
-### Low Priority (Future Enhancement)
+The requirements are internally consistent:
+- NFR 1.1: Trade entry to DB write < 3 seconds
+- NFR 1.3: Insights generation async within 1-2 seconds
+- FR 5.2.1: 3-second SLA applies to trade entry/dashboard only, not insights
 
-6. Consider adding CoT reasoning for behavioral scores in v2
-7. Consider dynamic few-shot retrieval in v2
-8. Consider confidence calibration feedback loop in v2
+This aligns with Phase 2 answer Q5 (async insights).
 
 ---
 
-## Summary
+## 4. Gaps Review
 
-**Overall Assessment**: The requirements draft is **strong** with respect to AI/NLP. Key strengths:
-- Well-specified extraction pipeline with confidence handling
-- Comprehensive behavioral scoring criteria
-- Appropriate insights prioritization
-- Correct alignment with tech stack (LangGraph, FastAPI backend)
+### 4.1 Required New Requirements
 
-**Action Items**:
-1. Add FR 2.9 to explicitly tie behavioral scoring to extraction prompt
-2. Add NFR 1.6 for token budget management
-3. Clarify retry strategy in NFR 2.1
-4. Add insights idempotency in FR 7.9
+#### Gap 1: Extraction Timeout
 
-With these minor additions, the requirements will be complete and feasible for implementation.
+**Proposed new requirement**:
+> **FR X.X Extraction Timeout**
+> - The system SHALL implement a timeout of 5 seconds for trade extraction AI calls.
+> - If timeout occurs, the system SHALL retry once, then surface a recoverable error.
+> - The system SHALL NOT write partial data on timeout.
+
+#### Gap 2: OpenAI API Fallback
+
+**Proposed new requirement**:
+> **FR X.X API Availability**
+> - When OpenAI API is unavailable, the system SHALL display: "Trade saved. Analysis unavailable — check back later."
+> - The trade SHALL be saved without extraction data.
+> - The system SHALL queue extraction for retry when API recovers.
+
+#### Gap 3: Extraction Result Validation
+
+**Proposed new requirement**:
+> **FR X.X Business Logic Validation**
+> - The system SHALL validate extracted P&L is within reasonable range (-$10,000 to +$10,000 per trade).
+> - The system SHALL validate direction is either "long" or "short".
+> - Invalid extractions SHALL trigger retry before failing.
+
+#### Gap 4: Observability
+
+**Proposed new requirement**:
+> **FR X.X Extraction Logging**
+> - The system SHALL log all extraction inputs and outputs for accuracy monitoring.
+> - The system SHALL track extraction success rate by confidence level.
+> - The system SHALL flag recurring extraction patterns for prompt recalibration.
+
+#### Gap 5: Prompt Security
+
+**Proposed new requirement**:
+> **FR X.X Input Sanitization**
+> - The system SHALL sanitize trade descriptions before passing to LLM to prevent prompt injection.
+> - The system SHALL remove or escape any system prompt instructions embedded in trade descriptions.
 
 ---
 
-## Questions for Other SMEs
+## 5. Summary of Changes
 
-**For Data Analytics SME:**
-- Are the denormalized session metrics (FR 4.4) sufficient for the insights calculations, or are there additional aggregates needed for the Tilt Risk Score?
+### 5.1 Recommendations for Modification
 
-**For Behavioral Psychology SME:**
-- Is the 7-trade context window (FR 7.2) sufficient for detecting meaningful behavioral patterns, or should it be configurable?
+| Ref | Change Type | Description |
+|-----|-------------|-------------|
+| TIC 2.4 | Clarify | Verify package name for LangGraph FastAPI endpoint |
+| New FR | Add | Model Selection - specify gpt-4o-mini for extraction, gpt-4o for insights |
+| New FR | Add | Extraction Timeout - 5 second max with retry |
+| New FR | Add | API Fallback - graceful degradation when OpenAI unavailable |
+| New FR | Add | Business Logic Validation - validate extracted values are reasonable |
+| New FR | Add | Extraction Logging - observability for accuracy tracking |
+| New FR | Add | Input Sanitization - prevent prompt injection |
+
+### 5.2 Requirements to Keep (No Changes)
+
+- FR 2.1.1 - LangGraph node with validation (correct)
+- FR 2.2.x - Prompt structure with few-shot examples (correct)
+- FR 2.3.x - Ambiguous P&L handling (correct)
+- FR 2.5.x - Error handling with user-friendly messages (correct)
+- FR 5.1.x - Insights context format (correct)
+- FR 5.2.x - Async generation timing (correct)
+- FR 5.3.x - Regeneration strategy with debounce (correct)
+- FR 5.4.x - Small session handling (correct)
 
 ---
+
+## 6. Tech Stack Compliance
+
+All requirements are compatible with the established tech stack:
+- FastAPI + LangGraph + LangChain + OpenAI: Yes
+- CopilotKit: Yes (with clarification needed on integration pattern)
+- TimescaleDB + Drizzle ORM: Yes (data layer, not AI domain)
+- Next.js + TypeScript: Yes (frontend)
+
+**No conflicts with tech stack detected** - only the CopilotKit integration pattern needs clarification.
+
+---
+
+## Conclusion
+
+The requirements draft is **largely accurate** and aligns well with the Phase 1/2 SME recommendations. However, there are **critical missing requirements** around model selection and **several important gaps** around reliability and observability that should be addressed before finalization.
+
+The main areas requiring attention are:
+1. **Model selection specification** (HIGH priority)
+2. **Timeout and fallback handling** (MEDIUM priority)
+3. **Integration pattern clarification for CopilotKit** (MEDIUM priority)
+
+---
+
+*Review prepared by: AI/NLP SME*
+*Date: 2026-03-02*
+*Sources: Requirements Draft, Phase 1 Analysis, Phase 2 Q&A, Tech Stack (AGENTS.md)*

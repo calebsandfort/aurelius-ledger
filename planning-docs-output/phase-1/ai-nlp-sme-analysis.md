@@ -1,290 +1,309 @@
-# AI/NLP SME Analysis: Aurelius Ledger
+# AI/NLP Architecture SME Analysis: Aurelius Ledger
 
 ## Executive Summary
 
-This analysis addresses three core AI/NLP architecture questions for the Aurelius Ledger trade extraction system. Given the established tech stack (FastAPI, LangGraph, CopilotKit, OpenAI), I recommend a LangGraph-based extraction pipeline with structured output, Pydantic validation, and carefully curated few-shot examples. For insights generation, a hybrid context approach with complete-block return provides the best balance of latency and quality.
+This analysis addresses the AI/NLP architecture considerations for the Aurelius Ledger project, focusing on the trade extraction agent, insights generation, and integration with the established tech stack (FastAPI + LangGraph + LangChain + OpenAI + CopilotKit).
 
 ---
 
 ## Question 1: Optimal Prompt Structure for Trade Extraction
 
-### Recommendation: Few-Shot Examples with 3-5 Diverse Examples
+### Prompt Architecture Recommendation
 
-**Prompt Structure:**
+**Recommended Structure: Hybrid Few-Shot with Structured Output**
+
+The optimal prompt structure combines:
+1. **System prompt with 3-5 curated few-shot examples** demonstrating the expected input/output format
+2. **Explicit field definitions with decision criteria** for each extracted field
+3. **Output schema specified via JSON Schema** (leveraging OpenAI's structured output capability)
+
+### Few-Shot Example Count: 3-4 Examples
+
+**Why 3-4 examples:**
+- **Minimum effective**: 2-3 examples cover the main variance patterns (win, loss, breakeven)
+- **Optimal balance**: 3-4 examples capture the key behavioral signals without overfitting
+- **Token efficiency**: More examples increase latency and cost without proportional accuracy gains
+
+**Example selection strategy:**
+1. Clear winner with explicit discipline signals ("waited for confirmation, rode the bounce, +$340")
+2. Clear loss with discipline signals ("stayed patient on the short, stopped out cleanly, -$120")
+3. Loss with undisciplined signals ("chased the breakout, FOMO'd in, -$85")
+4. Ambiguous case with neutral scores ("took the trade at resistance, exited at market, +$45")
+
+### Handling Ambiguous P&L
+
+**Recommended approach: Tiered fallback strategy**
+
+| Signal Quality | P&L Inference | Confidence Level |
+|----------------|---------------|-------------------|
+| Explicit dollar amount | Use exact value | High |
+| Relative terms ("small winner", "big loss") | Estimate based on typical position sizes or session average | Medium |
+| Direction + outcome only | Use placeholder with flag for review | Low |
+| No P&L signal | Return error (required field per HLRD) | N/A |
+
+**Implementation note**: For relative terms like "small winner", the agent should:
+1. Check for any positional context (e.g., "0.5 lot", "10 contracts") to estimate
+2. Default to a configurable small amount (e.g., $50 for "small winner") with a `pnl_confidence: "low"` field
+3. Ensure the trade is not persisted without human verification if confidence is low
+
+**Alternative consideration**: Use a secondary "estimation" prompt that asks the LLM to quantify relative P&L terms, then validate against typical session ranges. This adds latency (~300ms) but improves accuracy for ambiguous cases.
+
+### Detailed Prompt Structure
 
 ```
 SYSTEM PROMPT:
-- Role definition with domain context
-- Output schema with field descriptions and validation rules
-- Decision criteria for ambiguous cases
-- Few-shot examples (3-5) covering edge cases
-- Error handling instructions
-
-USER PROMPT:
-- Raw trade description text
-```
-
-**Why 3-5 Examples:**
-
-- **3 examples** is the minimum for teaching pattern recognition in extraction tasks
-- **5 examples** provides good coverage without bloating context or overwhelming the model's pattern matching
-- More than 5 examples shows diminishing returns and increases token cost
-- Examples should span: clear wins, clear losses, ambiguous P&L, discipline/agency edge cases
-
-**Example Prompt Structure:**
-
-```python
-TRADE_EXTRACTION_SYSTEM_PROMPT = """You are a trading journal assistant. Your task is to extract structured data from natural language trade descriptions.
+You are a trade extraction assistant for a futures trader. Your task is to parse natural language
+trade descriptions and extract structured data.
 
 ## Output Schema
-{
-    "direction": "long" | "short",  # Required - must be inferred
-    "outcome": "win" | "loss" | "breakeven",  # Inferred from P&L or explicit language
-    "pnl": number,  # Dollar value, positive = win, negative = loss
-    "setup_description": string,  # Natural language summary
-    "discipline_score": -1 | 0 | 1,  # 1=disciplined, -1=undisciplined, 0=ambiguous
-    "agency_score": -1 | 0 | 1  # 1=intentional, -1=reactive, 0=ambiguous
-}
+{JSON_SCHEMA_HERE}
 
-## Scoring Guidelines
+## Field Extraction Guidelines
 
-### Discipline Score
-- +1: "waited for confirmation", "patient entry", "followed my plan", "stayed disciplined"
-- -1: "chased", "fomo'd", "didn't wait", "impulsive entry", "revenge trade"
-- 0: No clear discipline signal or mixed signals
+### direction
+- "long" if the trader bought/went long
+- "short" if the trader sold/went short
+- Default: error if undeterminable
 
-### Agency Score
-- +1: "intentional", "decided to", "chose to", "my call"
-- -1: "revenge trade", "knew better but couldn't help it", "失控" (lost control)
-- 0: No clear agency signal
+### outcome
+- "win" if pnl > 0
+- "loss" if pnl < 0
+- "breakeven" if pnl == 0 or explicitly stated
 
-## P&L Handling
-- Exact dollar amounts: Use as stated
-- "Small winner/loser": Estimate $50-$100 for "small", $100-$200 for "moderate"
-- "Nice win/big loss": Estimate $200-$500 for "nice", $500+ for "big"
-- Explicit language "won $X" or "lost $X": Use exact or estimated based on context
-- NO P&L stated: Return error - P&L is required
+### pnl
+- Extract as positive for wins, negative for losses
+- If dollar amount present: use exact value
+- If relative term ("small winner", "nice profit", "small loss"): estimate based on context
+- If no P&L signal: return error (required field)
+
+### discipline_score
+- +1: "waited for", "held for", "patient", "planned", "stuck to thesis"
+- -1: "chased", "FOMO'd", "revenge", "overtraded", "impulsive"
+- 0: ambiguous or no behavioral signals
+
+### agency_score
+- +1: intentional execution, followed plan, deliberate entry
+- -1: "knew better", "against my rules", "couldn't help it", reactive trading
+- 0: ambiguous or no agency signals
 
 ## Few-Shot Examples
 
-Example 1:
-Input: "Took NQ long at 17850, waited for the pullback to confirm, hit my target at 17900 for a $500 win. Felt good about following my plan."
-Output: {"direction": "long", "outcome": "win", "pnl": 500, "setup_description": "NQ long at 17850, waited for pullback confirmation", "discipline_score": 1, "agency_score": 1}
+[INSERT 3-4 EXAMPLES HERE]
 
-Example 2:
-Input: "Chased ES short at 5120, got stopped out for $200 loss. FOMO trade, knew better."
-Output: {"direction": "short", "outcome": "loss", "pnl": -200, "setup_description": "ES short at 5120", "discipline_score": -1, "agency_score": -1}
-
-Example 3:
-Input: "Small winner on crude, $75 profit on long"
-Output: {"direction": "long", "outcome": "win", "pnl": 75, "setup_description": "Long crude", "discipline_score": 0, "agency_score": 0}
-
-## Error Handling
-If required fields cannot be determined, return error with specific missing information.
-"""
+## Instructions
+- Always output valid JSON matching the schema exactly
+- If required fields cannot be determined, return an error object with "error" key
+- Do not fabricate data
 ```
-
-**Handling Ambiguous P&L:**
-
-The prompt should include explicit heuristics for common ambiguous phrases:
-
-| Phrase | Estimated P&L |
-|--------|---------------|
-| "small winner" | $50-$100 |
-| "small loser" | -$50 to -$100 |
-| "nice win" | $200-$500 |
-| "big loss" | -$500+ |
-| "breakeven" / "scratched" | $0 |
-| "mixed" / "mediocre" | $25-$50 (positive) or -$25 to -$50 (negative) based on context |
-
-**Trade-off Analysis:**
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| Zero-shot (no examples) | Lower tokens, faster | Lower accuracy on edge cases |
-| 3-5 examples (recommended) | Good coverage, reasonable cost | Requires maintenance as edge cases emerge |
-| 10+ examples | High accuracy | Token bloat, diminishing returns, slower |
 
 ---
 
-## Question 2: Single Structured Call vs. LangGraph with Validation
+## Question 2: Single LLM Call vs. LangGraph Node with Validation
 
-### Recommendation: LangGraph Node with Validation Step
+### Recommendation: LangGraph Node with Validation + Retry
 
-**Architecture:**
+**Architecture: LangGraph agent with structured output and schema validation**
+
+Given the tech stack (FastAPI + LangGraph + LangChain + OpenAI), I recommend implementing extraction as a **LangGraph node** rather than a direct LLM call for the following reasons:
+
+### Rationale
+
+1. **Schema enforcement**: LangChain's `with_structured_output()` combined with Pydantic validation ensures the output conforms to the required schema before database insertion.
+
+2. **Retry capability**: Schema mismatches can occur due to:
+   - Model hallucination (returning fields not in schema)
+   - Malformed JSON from parsing errors
+   - Edge cases in extraction logic
+
+3. **Graceful error handling**: A LangGraph node can implement conditional logic:
+   - Valid output -> proceed to database write
+   - Invalid output -> retry up to N times with modified prompt
+   - Persistent failure -> surface error to user without partial write
+
+4. **Observability**: LangGraph's checkpointer allows tracing extraction attempts, which is valuable for debugging and improving the extraction accuracy over time.
+
+### Implementation Architecture
 
 ```
-[Trade Input] --> [LLM Extraction Node] --> [Pydantic Validation Node] --> [Database Write]
-                      |                           |
-                      v                           v
-              (Structured Output)          (Retry on failure)
-                       |
-                       v
-              [Error Handler Node]
+[Trade Input]
+     |
+     v
+[Extract Trade Node] --> LLM with structured output (Pydantic schema)
+     |
+     v
+[Validate Schema Node] --> Check all required fields present
+     |
+     v
+[Retry Logic] --> Max 2 retries with error context in prompt
+     |
+     v
+[Success: Continue to DB Write]  OR  [Failure: Return Error]
 ```
 
-**Implementation:**
+### Code Structure (Tech Stack Aligned)
 
 ```python
-# LangGraph node for trade extraction
-from langgraph.graph import StateGraph
-from pydantic import BaseModel, Field, field_validator
+# Using LangChain with structured output
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel
 from typing import Literal
 
 class TradeExtraction(BaseModel):
     direction: Literal["long", "short"]
     outcome: Literal["win", "loss", "breakeven"]
-    pnl: float = Field(description="Dollar P&L, positive for wins")
+    pnl: float
     setup_description: str
     discipline_score: Literal[-1, 0, 1]
     agency_score: Literal[-1, 0, 1]
 
-def extract_trade_node(state: TradeState) -> TradeState:
-    """LangGraph node that calls LLM with structured output."""
-    response = llm.with_structured_output(TradeExtraction).invoke([
-        {"role": "system", "content": TRADE_EXTRACTION_SYSTEM_PROMPT},
-        {"role": "user", "content": state["trade_description"]}
-    ])
-    return {"extracted_trade": response}
-
-def validate_trade_node(state: TradeState) -> TradeState:
-    """Validation node - retries on schema mismatch."""
-    try:
-        extraction = state["extracted_trade"]
-        # Additional business logic validation
-        if extraction.pnl == 0 and extraction.outcome not in ["breakeven", "win", "loss"]:
-            raise ValueError("Zero P&L requires explicit outcome")
-        return {"validation_passed": True, "trade": extraction}
-    except Exception as e:
-        # Retry up to 2 times
-        if state.get("retry_count", 0) < 2:
-            return {"retry_count": state.get("retry_count", 0) + 1}
-        return {"validation_passed": False, "error": str(e)}
+# LangGraph node implementation
+extract_node = llm.with_structured_output(TradeExtraction)
 ```
 
-**Why LangGraph with Validation:**
+### Trade-offs
 
-| Factor | Single Call | LangGraph + Validation |
-|--------|-------------|------------------------|
-| Schema Enforcement | Good (with structured output) | Excellent (double validation) |
-| Retry on Failure | Requires manual handling | Built-in retry logic |
-| Error Recovery | Manual | Graph-based conditional edges |
-| Latency | Lower (single API call) | Slightly higher (may retry) |
-| Debugging | Harder to trace | Clear node execution flow |
-| Extensibility | Limited | Can add more nodes easily |
+| Aspect | Single LLM Call | LangGraph Node + Validation |
+|--------|-----------------|------------------------------|
+| Latency | ~500ms | ~700ms (validation + potential retry) |
+| Reliability | Lower (no retry) | Higher (automatic retry) |
+| Complexity | Simpler | More components |
+| Cost | Lower (1 call) | Higher (1-3 calls) |
+| Debugging | Harder | Easier with checkpointer |
 
-**Specific Benefits for This Use Case:**
-
-1. **Schema Mismatch Recovery**: If the LLM returns invalid JSON or schema violations, the validation node can trigger a retry with different prompts
-2. **Graceful Degradation**: Can add fallback nodes for different error types
-3. **Observability**: Each node execution can be logged for debugging extraction failures
-4. **Future Extensibility**: Easy to add sentiment analysis, setup classification, or other nodes without restructuring
-
-**Retry Strategy:**
-
-- Maximum 2 retries on validation failure
-- On final failure, surface clear error to user: "Could not extract trade details. Please provide more specific information."
-- Log failed extractions for analysis and prompt refinement
+**Conclusion**: The 3-second latency requirement can be met with the LangGraph approach (typical extraction runs in 500-700ms), and the reliability gains outweigh the minor cost increase. The HLRD explicitly requires "valid, schema-conformant JSON response or surface a recoverable error" — the LangGraph approach directly enables this.
 
 ---
 
 ## Question 3: Insights Agent Context and Streaming
 
-### Recommendation: Hybrid Context with Complete Block Return
+### Recommendation: Both Raw Records + Aggregated Stats, Non-Streamed Block
 
-**Context Strategy:**
+### Context Strategy: Pass Both Raw Records and Aggregated Stats
 
-Pass **both** raw trade records AND aggregated session stats to the insights agent:
+**Rationale:**
 
-```python
-INSIGHTS_SYSTEM_PROMPT = """You are a trading psychology expert. Analyze the current trading session and provide actionable insights.
+1. **Raw trade records** provide:
+   - Individual setup descriptions for pattern analysis
+   - Behavioral signals (discipline/agency scores per trade)
+   - Temporal sequence for trajectory analysis
 
-## Session Statistics (Aggregated)
-- Total P&L: ${total_pnl}
-- Win Rate: {win_rate}%
-- Total Trades: {trade_count}
-- Discipline Score: {discipline_score}/10
-- Agency Score: {agency_score}/10
-- Recent Trend: {discipline_trend}
+2. **Aggregated session stats** provide:
+   - Quick context for the LLM (total P&L, win rate)
+   - Summary metrics without parsing all records
+   - Score trends (running sums visible at a glance)
 
-## Individual Trades (Raw Data)
-{trade_list}
-
-## Your Task
-Generate 3-5 actionable insights that:
-1. Identify behavioral patterns (discipline, agency trends)
-2. Note setup consistency or variance
-3. Flag potential tilt or emotional trading
-4. Provide specific, non-generic recommendations
-
-Format as bullet points, keep under 150 words.
-"""
-```
-
-**Why Hybrid Context:**
-
-| Context Type | What It Provides | Limitation |
-|-------------|-------------------|------------|
-| Raw Records Only | Individual trade details | No session-level pattern visibility |
-| Aggregated Stats Only | High-level trends | Loses behavioral nuance from descriptions |
-| **Both (Recommended)** | Full picture | Slightly more tokens |
-
-**Streamed vs. Complete Block:**
-
-| Approach | Pros | Cons |
-|----------|------|------|
-| Streamed | Perceived faster, engaging | Complicated UI, potential for partial/incomplete insights |
-| Complete Block | Simpler UI, full context for quality | Must wait for complete generation |
-
-**Recommendation: Complete Block Return**
-
-For this use case, complete block return is preferable because:
-
-1. **Latency Requirement**: The 3-second SLA is achievable with complete return (insights can be generated asynchronously after trade is logged)
-2. **Quality over Perceived Speed**: Partial insights that get overwritten are confusing; complete insights are more useful
-3. **UI Simplicity**: Streaming requires managing partial state, which adds complexity
-4. **Asynchronous Generation**: Insights can be regenerated after trade write completes, with the old insights showing until new ones are ready
-
-**Implementation Pattern:**
+**Recommended payload structure:**
 
 ```python
-async def generate_insights(trades: list[Trade], session_stats: SessionStats) -> str:
-    """Generate insights after trade is persisted."""
-    context = build_insights_context(trades, session_stats)
-    response = llm.invoke(INSIGHTS_SYSTEM_PROMPT.format(**context))
-    return response.content
-
-# Called asynchronously after successful trade write
-# Frontend polls or receives WebSocket update when ready
+insights_request = {
+    "session_summary": {
+        "total_trades": int,
+        "total_pnl": float,
+        "win_count": int,
+        "loss_count": int,
+        "breakeven_count": int,
+        "discipline_sum": int,
+        "agency_sum": int,
+        "win_rate": float
+    },
+    "trades": [
+        {
+            "timestamp": "ISO8601",
+            "direction": "long|short",
+            "outcome": "win|loss|breakeven",
+            "pnl": float,
+            "setup_description": str,
+            "discipline_score": -1|0|1,
+            "agency_score": -1|0|1
+        }
+        # ... all trades in session
+    ]
+}
 ```
+
+### Streaming vs. Block Return: Block Return
+
+**Recommendation: Complete block return (not streamed)**
+
+**Rationale:**
+
+1. **Latency constraint**: The 3-second end-to-end requirement already includes insights generation. Streaming would require maintaining an open connection and delivering partial updates, adding complexity without significant UX benefit.
+
+2. **Insight coherence**: AI-generated insights are most valuable as a cohesive analysis, not as incremental fragments. A mid-stream insight (e.g., "your discipline is improving...") before seeing all trades would be premature.
+
+3. **UI simplicity**: Displaying a complete insights block is straightforward. Streaming would require frontend state management for partial content.
+
+4. **Token efficiency**: Streaming doesn't save tokens — the full insight is generated regardless.
+
+**Exception consideration**: If the insights generation exceeds 2 seconds, consider:
+- Generating insights asynchronously after trade submission
+- Showing "Analyzing..." state while generating
+- Returning cached insights until new analysis completes
+
+This is acceptable because the HLRD states "Trade entry to dashboard update must complete in under 3 seconds" — the dashboard should update with the trade data immediately, while insights can load asynchronously.
 
 ---
 
-## Cross-Cutting Architecture Considerations
+## Domain-Specific Recommendations
 
-### Latency Optimization
+### 1. Extraction Accuracy Optimization
 
-For the 3-second end-to-end SLA:
+**Implement confidence scoring:**
 
-1. **Extraction**: Use `gpt-4o-mini` or `gpt-4o` with structured output (fast model, ~500ms)
-2. **Parallel Operations**: Write trade to DB and generate insights in parallel
-3. **Caching**: Cache session stats in memory; regenerate insights only on new trade
-4. **Timeout Handling**: Set 2.5s timeout on extraction, fail gracefully with user-facing error
+Add a `confidence` field to the extraction output:
+```python
+class ExtractionResult(BaseModel):
+    # ... existing fields
+    confidence: Literal["high", "medium", "low"]
+    extraction_notes: str | None  # Explain ambiguous decisions
+```
 
-### Error Handling Strategy
+This enables:
+- Flagging trades for manual review when confidence is low
+- Building a dataset for future prompt refinement
+- Providing transparency to the trader about extraction certainty
 
-| Error Type | User Feedback | Recovery |
-|------------|---------------|----------|
-| Extraction failure | "Could not understand trade. Try being more specific." | Retry with prompt adjustment |
-| Validation failure | "Missing required info. Did you include P&L?" | Specific field request |
-| DB write failure | "Trade saved but couldn't generate insights. Try refreshing." | Partial success state |
-| LLM timeout | "System busy. Try again." | Retry with exponential backoff |
+### 2. Error Recovery Strategy
 
-### Cost Optimization
+**Structured error handling for extraction failures:**
 
-- **Extraction**: Use structured output with `gpt-4o-mini` (cheaper, faster)
-- **Insights**: Use cached context; regenerate only on new trades
-- **Token Management**: Limit few-shot examples to 5; use concise field descriptions
+| Error Type | Handling |
+|------------|----------|
+| Schema mismatch | Retry with explicit schema reminder in prompt |
+| Missing required field | Retry with field-specific prompting |
+| P&L undeterminable | Surface error, allow manual entry |
+| LLM timeout | Retry once, then error |
+
+### 3. Latency Optimization
+
+**For the 3-second requirement:**
+
+1. **Use gpt-4o-mini or gpt-4o** (not o1 or o3) for extraction — faster for simple structured tasks
+2. **Cache the insights result** — regenerate only after new trade, not on every dashboard refresh
+3. **Pre-warm the LLM connection** — keep the model "warm" between trades
+4. **Parallel execution** — run extraction and dashboard update in parallel where possible
+
+### 4. Behavioral Score Calibration
+
+**Consider adding calibration prompts:**
+
+- Periodically ask the trader if the automated scores feel accurate
+- Use feedback to adjust the scoring heuristics in the prompt
+- This addresses the success criterion: "Discipline and agency scores feel fair and consistent to the trader"
+
+### 5. Cost Management
+
+**Token budget for extraction:**
+- System prompt: ~800 tokens
+- Few-shot examples: ~400 tokens (3-4 examples)
+- User input: Variable (~100-300 tokens typical)
+- Output: ~150 tokens
+- **Total per extraction**: ~1,500 tokens (~$0.003 with gpt-4o-mini)
+
+**Token budget for insights:**
+- Session context: ~500 tokens (5 trades)
+- System prompt: ~600 tokens
+- **Total per insight**: ~1,100 tokens (~$0.002)
 
 ---
 
@@ -292,24 +311,19 @@ For the 3-second end-to-end SLA:
 
 ### For Behavioral Psychology SME:
 
-1. **Discipline/Agency Scoring**: Are the scoring heuristics I defined aligned with trading psychology principles? Specifically:
-   - Does "waited for confirmation" universally indicate discipline, or are there scenarios where patience could be weakness (analysis paralysis)?
-   - How should we handle cases where discipline and agency conflict (e.g., "stuck to my plan even though I knew it was wrong")?
+1. **Discipline/agency scoring calibration**: The current scoring schema (-1, 0, +1) is simple, but are there common trading behaviors that might be misclassified? For example, "scaling out" or "adding to a position" — should these be neutral, positive, or negative signals?
 
-2. **Insights Actionability**: What behavioral patterns should take priority in the insights? Should we flag tilt risk based on:
-   - Consecutive losses?
-   - Discipline score dropping below threshold?
-   - Agency score trend (becoming more reactive)?
+2. **Insight actionability**: What specific behavioral patterns would be most valuable to surface in the AI insights panel? Should the system warn about specific risk factors (e.g., "tilt risk elevated" based on recent loss streak)?
 
-3. **Edge Case Handling**: How should we interpret self-deprecating language like "I probably got lucky there" - does it indicate low agency or just trader humility?
+3. **Score trajectory interpretation**: If a trader's discipline score starts positive and trends negative over a session, what interventions or insights would be most helpful? Is a warning appropriate, or would that be counterproductive during active trading?
 
 ### For Data Analytics SME:
 
-1. **Dashboard Layout**: For a trader during live sessions, what is the optimal chart arrangement? Should P&L be prominent with scores as secondary, or should behavioral metrics be equally visible?
+1. **Dashboard real-time updates**: What's the recommended approach for handling rapid trade submissions (e.g., a trader logging multiple trades quickly)? Should updates be debounced, or is immediate refresh acceptable?
 
-2. **Real-Time Updates**: Should charts animate/transition smoothly when new data arrives, or is instant update preferable for "at a glance" assessment during fast markets?
+2. **Chart visualization for scores**: The requirements specify "running sum" for discipline and agency. Would a moving average or trend line be more informative? Should the charts show individual trade scores alongside the running sum?
 
-3. **Insight Display**: Where in the UI should insights appear? A persistent sidebar takes space but provides constant reference; a collapsible panel keeps UI clean but requires action to view.
+3. **Insights caching strategy**: Since insights are regenerated after each trade, what's the recommended cache invalidation strategy? Should insights be cached by trade count (e.g., regenerate only when trade count changes)?
 
 ---
 
@@ -317,13 +331,16 @@ For the 3-second end-to-end SLA:
 
 | Decision | Recommendation | Rationale |
 |----------|----------------|-----------|
-| Few-shot count | 3-5 examples | Balance of coverage and token cost |
-| Ambiguous P&L | Heuristic mapping in prompt | Clear rules, consistent estimates |
-| Extraction architecture | LangGraph with validation | Retry capability, extensibility, observability |
-| Insights context | Both raw + aggregated | Full behavioral picture |
-| Insights delivery | Complete block | Simpler UI, quality over perceived speed |
-| Model selection | gpt-4o-mini for extraction | Speed + cost optimization |
+| Few-shot count | 3-4 examples | Optimal balance of coverage and token efficiency |
+| Ambiguous P&L handling | Tiered fallback with confidence flag | Addresses requirement without blocking valid trades |
+| Extraction architecture | LangGraph node with validation | Enables retry, meets schema requirement, observability |
+| Insights context | Both raw + aggregated | Provides both detail and summary for best analysis |
+| Insights delivery | Block return (non-streamed) | Coherence, simplicity, meets latency requirement |
 
 ---
 
-*Analysis prepared for Phase 1 of the Aurelius Ledger requirements elaboration workflow.*
+## References
+
+- Tech Stack: FastAPI + LangGraph + LangChain + OpenAI + CopilotKit
+- Latency Requirement: <3 seconds end-to-end
+- Schema Requirement: Valid JSON or recoverable error (no silent partial writes)

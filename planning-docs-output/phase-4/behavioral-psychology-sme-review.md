@@ -1,197 +1,163 @@
-# Behavioral Psychology SME Review
+# Behavioral Psychology SME Review - Requirements Draft
 
-## Phase 4 Requirements Review
-
-**SME:** Behavioral Psychology (Trading Psychology, Habit Formation, Behavioral Interventions)
+**Review Date:** 2026-03-02
+**SME:** Behavioral Psychology (Trading Psychology, Habit Formation, Intervention Design)
 **Document:** `/home/csandfort/Documents/source/repos/aurelius-ledger/planning-docs-output/phase-3/requirements-draft.md`
 
 ---
 
 ## Executive Summary
 
-The requirements draft demonstrates strong foundational understanding of trading psychology, with well-designed behavioral scoring mechanisms and thoughtful non-functional requirements around user tone. However, several gaps and concerns exist that should be addressed to ensure the behavioral interventions are maximally effective and ethically sound.
+The requirements draft demonstrates strong foundational understanding of behavioral psychology principles. The core design decisions around frictionless trade entry, behavioral score visualization, and non-intrusive insights are well-aligned with established frameworks (Fogg Behavior Model, habit loops, self-determination theory). However, several areas require refinement to prevent potential psychological harms and optimize behavioral outcomes.
 
-**Overall Assessment:** Good with recommended improvements.
-
----
-
-## Accuracy Review
-
-### Correctly Implemented Behavioral Concepts
-
-1. **Discipline & Agency Scores (FR 3.0-3.7):** These are well-defined constructs from trading psychology literature. Agency taking precedence over discipline (FR 3.6) is sound - when a trader lacks agency, behavioral interventions are less effective regardless of discipline level.
-
-2. **Tilt Detection (FR 7.5-7.6):** The weighted scoring (consecutive losses x2) aligns with empirical findings that string losses are the primary tilt trigger. Thresholds (0-1: no alert, 2-3: yellow, 4+: red) are reasonable.
-
-3. **Observational Tone (NFR 3.4):** Using "Discipline score declining" vs "You're being undisciplined" reflects motivational interviewing principles - this is excellent.
-
-4. **Non-Shaming Language (NFR 3.5):** Critical for maintaining psychological safety and encouraging honest self-reporting.
-
-5. **Subtle Visual Warnings (FR 8.3):** Using color tinting rather than blocking elements avoids inducing anxiety - this is behaviorally sound.
-
-### Issues with Accuracy
-
-**NFR 3.3 - Loss-Framing Concern:**
-> "The system SHALL use loss-framing for tilt warnings and gain-framing for positive patterns."
-
-**Concern:** This contradicts established behavioral science. Loss aversion is already over-represented in trading psychology - traders naturally focus on losses. Research shows loss-framing can increase anxiety and risk-averse behavior, potentially triggering the very tilt the system seeks to prevent.
-
-**Recommendation:** Use neutral framing with action orientation:
-- Instead of: "You're down $500 - don't revenge trade"
-- Use: "Three consecutive losses detected. Consider taking a 5-minute break before your next entry."
-
-**FR 3.7 - Self-Deprecating Language Detection:**
-> "The system SHALL detect self-deprecating language patterns and assign agency_score = -1 for external attribution on wins (e.g., 'got lucky')."
-
-**Concern:** This is a good insight but the example is weak. "Got lucky" on a win is external attribution, but the more behaviorally significant pattern is internal attribution on losses ("I messed up", "I'm so stupid") combined with external attribution on wins ("market gave me that one").
-
-**Recommendation:** Add detection for:
-- Internal attribution on losses: agency_score = -1
-- External attribution on wins: agency_score = -1 (as currently specified)
+**Overall Assessment:** Good with targeted corrections needed.
 
 ---
 
-## Completeness Review
+## 1. Accuracy Review
 
-### Missing Behavioral Requirements
+### 1.1 Behavioral Concepts - Correctly Represented
 
-1. **Positive Psychology Integration:**
-   The system focuses entirely on negative patterns (tilt, lack of discipline, loss of agency). There is no requirement to recognize and reinforce positive behavioral patterns.
+| Requirement | Assessment | Notes |
+|-------------|------------|-------|
+| FR 2.2 (Discipline Scoring) | **Accurate** | Correctly identifies discipline as adherence to plan, patience, waiting for confirmation. |
+| FR 2.3 (Agency Scoring) | **Accurate** | Correctly frames agency as intentionality vs. reactive behavior. |
+| FR 2.4 (Position Management) | **Accurate** | Scoring aligns with behavioral psychology - averaging down penalizes appropriately. |
+| FR 4.4 (Warning System) | **Accurate** | Graduated response model is evidence-based. |
+| FR 5.5 (Insight Tiers) | **Accurate** | Risk alerts > Pattern > Positive reinforcement hierarchy is correct. |
+| FR 5.6 (Insight Tone) | **Accurate** | Conditional framing, action-orientation, non-judgmental language all correct. |
 
-   **Proposed New Requirement:**
-   > **FR X.X Positive Reinforcement**
-   > - The system SHALL generate a "strengths highlight" when:
-   >   - A trader maintains positive discipline through volatility
-   >   - A trader demonstrates recovery after a loss (good agency)
-   >   - Win rate exceeds 60% with positive discipline
-   > - Positive insights SHALL use active, affirming language ("Your patience paid off" vs "Good discipline score")
+### 1.2 Theoretical Frameworks - Appropriately Applied
 
-2. **Implementation Intentions:**
-   Research shows that specifying when/how to act (implementation intentions) improves behavior change. The system could prompt this after tilt detection.
+- **Fogg Behavior Model** - Well-applied to trade entry design (motivation=trading, ability=frictionless entry, prompt=persistent input)
+- **Habit Formation (Hook Model)** - Cue-routine-reward loop properly implemented through persistent input + visual feedback
+- **Self-Determination Theory** - Autonomy supported through non-intrusive design; competence supported through fair scoring; relatedness through insights
 
-   **Proposed New Requirement:**
-   > **FR X.X Implementation Intention Prompt**
-   > - When tilt risk score reaches yellow (2-3), the system SHALL offer a optional prompt: "What's your plan if you feel the urge to overtrade in the next 15 minutes?"
+### 1.3 Potential Accuracy Issues
 
-3. **Recovery Detection:**
-   The system detects decline but not recovery - which is critical for building confidence.
-
-   **Proposed New Requirement:**
-   > **FR X.X Recovery Recognition**
-   > - The system SHALL detect behavioral recovery (positive discipline after 2+ consecutive negative scores) and highlight this in insights
-   > - Recovery insights SHALL be prioritized to reinforce successful self-regulation
-
-4. **Session Closure Ritual:**
-   Research on habit formation emphasizes end-of-routine cues. A session summary could serve as a closure ritual.
-
-   **Proposed New Requirement:**
-   > **FR X.X Session Summary**
-   > - The system SHALL provide a end-of-session summary when no trades occur for 30+ minutes during market hours
-   > - Summary SHALL include: win rate, discipline trend, one key insight, comparison to previous sessions (optional)
-
-5. **Cognitive Load Management (NFR 3.2 partially addresses):**
-   The requirement mentions visual indicators but does not specify information hierarchy.
-
-   **Proposed New Requirement:**
-   > **FR X.X Information Hierarchy**
-   > - Primary metrics (P&L, tilt risk) SHALL be visually dominant
-   > - Secondary metrics (discipline trend, agency trend) SHALL be visible but less prominent
-   > - Historical context SHALL be accessible via interaction, not displayed by default
+**Issue 1: FR 5.6.6 - 40% Positive Insight Quota**
+- **Problem:** Mandating 40% positive insights when present creates pressure for false positives
+- **Risk:** Undermines trust when trader perceives inauthentic praise
+- **Recommendation:** Remove specific percentage; use guidance "ensure meaningful positive reinforcement when patterns warrant"
 
 ---
 
-## Gaps Review
+## 2. Completeness Review
 
-### Unincorporated SME Recommendations
+### 2.1 Missing Behavioral Requirements
 
-From the synthesis notes, several SME concerns were addressed, but the following behavioral psychology recommendations appear unaddressed:
+| Gap | Severity | Description |
+|-----|----------|-------------|
+| Cognitive Bias Mitigation | Medium | No requirements address anchoring bias in P&L chart, confirmation bias in insights |
+| Loss Aversion Handling | Medium | P&L visualization (FR 4.1.2) uses red/green but doesn't account for asymmetric loss aversion |
+| Cognitive Load Management | Medium | No explicit requirement limiting simultaneous chart interactions |
+| Self-Efficacy Calibration | Low | No mechanism to prevent score gaming or ensure scores remain meaningful |
+| Recovery State Support | Low | No explicit support for post-incident reflection (e.g., after 3+ consecutive losses) |
 
-1. **Feedback Timing:**
-   Behavioral research emphasizes immediate feedback for habit formation. The requirements specify asynchronous insights (FR 7.3), which is correct for AI quality, but no requirement exists for immediate acknowledgment of trade receipt.
+### 2.2 Missing Requirements
 
-   **Gap:** No requirement for instant "trade logged" confirmation with brief behavioral micro-feedback (e.g., "Discipline: +1" appears immediately, insights come asynchronously).
+**NEW REQUIREMENT - Cognitive Bias Mitigation:**
+> The system SHALL implement the following bias mitigation strategies:
+> - FR X.X.1 The P&L chart SHALL display cumulative values, not percentage changes, to reduce relative thinking bias
+> - FR X.X.2 Insights SHALL explicitly frame neutral information as such, avoiding language that implies pattern significance when statistical significance is uncertain
+> - FR X.X.3 The system SHALL NOT highlight "near misses" or "almost wins" that could trigger recency bias
 
-2. **Baseline Establishment:**
-   The system calculates rolling averages but no requirement addresses establishing a personal baseline. A new trader needs different feedback than an experienced trader.
-
-   **Gap:** No requirement for personalization based on session count or historical baseline.
-
-3. **Attribution Training:**
-   The system detects external attribution on wins but does not help the trader recognize and correct this pattern.
-
-   **Gap:** No educational component or pattern explanation when attribution issues are detected.
-
-4. **Choice Architecture for Breaks:**
-   The tilt warnings suggest breaks but do not make taking a break easy.
-
-   **Gap:** No "take break" one-click action that logs the break time and prompts return.
-
----
-
-## Conflicts Review
-
-### Internal Conflicts
-
-1. **FR 7.4 vs. FR 7.8:**
-   FR 7.4 prioritizes insight types (1. Tilt Risk, 2. Discipline Trajectory, 3. Agency Trend, 4. Outcome Patterns), but FR 7.8 limits display to "maximum of 3 insight items." If tilt risk is present, it takes one slot, leaving only 2 slots for other insights. This may not provide enough information post-session.
-
-   **Resolution:** Consider differentiating mid-session (max 2-3 insights) from post-session (up to 4 insights with longer display time).
-
-2. **FR 5.7 vs. NFR 3.3:**
-   Blue/amber color scheme (FR 5.7) is good for avoiding loss aversion triggers, but loss-framing (NFR 3.3) works against this. The color scheme decision in Synthesis Notes correctly prioritizes avoiding loss aversion - the NFR 3.3 should be revised to match.
-
-### Tech Stack Conflicts
-
-No conflicts detected between behavioral requirements and the established tech stack (Next.js, TypeScript, Shadcn/ui, Tailwind CSS, Better Auth, Drizzle ORM, CopilotKit, FastAPI, LangGraph, LangChain, OpenAI, TimescaleDB, Docker Compose).
-
-The LangGraph-based extraction pipeline is appropriate for the nuanced behavioral scoring required.
+**NEW REQUIREMENT - Loss Aversion Calibration:**
+> The system SHALL account for loss aversion in visualization:
+> - FR X.X.1 The P&L chart y-axis SHOULD use asymmetric scaling if losses exceed wins by 2:1
+> - FR X.X.2 Warnings SHOULD trigger at lower thresholds for consecutive losses than for consecutive wins (asymmetric alert thresholds)
 
 ---
 
-## Specific Recommendations
+## 3. Conflicts Review
 
-### Priority 1 (Critical)
+### 3.1 Potential Conflicts with Behavioral Best Practices
 
-| Ref | Issue | Recommendation |
-|-----|-------|----------------|
-| NFR 3.3 | Loss-framing may increase anxiety and trigger tilt | Replace with action-oriented neutral framing |
-| NFR 3.5 | No explicit prohibition on shame-inducing language in AI prompts | Add requirement for prompt engineering guidelines document |
+| Requirement | Conflict | Resolution |
+|-------------|----------|------------|
+| FR 4.4.3 (Warning at 3 consecutive -1) | May be too sensitive; normal variance can produce 3 consecutive discipline lapses without tilt | Keep requirement but add FR 4.4.3.1: "Warning SHOULD require at least 2 of 3 trades to have explicit negative behavioral language in the trade description" |
+| FR 4.1.2 (Dynamic red/green coloring) | Can amplify loss aversion - red triggers emotional response | Add guidance: "Color transitions SHOULD use smooth gradients rather than abrupt switches to reduce emotional reactivity" |
+| FR 5.5.1 (Tilt Warning at 2 losses + -1) | Appropriate threshold but message "consider stepping back" may conflict with trader's agency | Keep but add FR 5.5.1.1: "Tilt warnings SHOULD offer options rather than directives (e.g., 'Consider: [take break] [reduce size] [log why]')" |
 
-### Priority 2 (Important)
+### 3.2 Internal Consistency
 
-| Ref | Issue | Recommendation |
-|-----|-------|----------------|
-| FR 3.7 | Self-deprecating detection incomplete | Add internal attribution on losses detection |
-| - | No positive reinforcement | Add FR for strengths recognition |
-| - | No recovery detection | Add FR for behavioral recovery highlighting |
-
-### Priority 3 (Enhancement)
-
-| Ref | Issue | Recommendation |
-|-----|-------|----------------|
-| - | No implementation intention prompts | Add optional implementation intention after tilt |
-| - | No session closure ritual | Add end-of-session summary |
-| - | No choice architecture for breaks | Add one-click break logging |
+- FR 2.5.1 ("Couldn't parse that — add it manually") - Good non-judgmental error message
+- FR 5.6.2 ("conditional framing rather than judgment") - Good, but could conflict with FR 5.5.1's directive language
+- All warning/insight requirements are internally consistent with the non-intrusive design philosophy
 
 ---
 
-## Conclusion
+## 4. Gaps Review
 
-The requirements draft is solid from a behavioral psychology standpoint, with good theoretical grounding in trading psychology concepts. The key issues are:
+### 4.1 Behavioral Gaps to Address
 
-1. **NFR 3.3 should be revised** to use neutral/action-oriented framing instead of loss-framing
-2. **Several positive psychology elements are missing** that would improve effectiveness
-3. **The system is well-aligned with the tech stack** - no conflicts
+**Gap 1: Feedback Timing**
+- Current: Real-time updates (FR 4.6)
+- Missing: Delayed feedback for certain metrics to prevent overreaction
+- **Recommendation:** Add FR X.X.X: "Behavioral trend insights (not P&L) SHOULD have a minimum 2-trade confirmation before alerting, to reduce false positives from normal variance"
 
-The synthesis notes correctly identified the color scheme decision as addressing loss aversion concerns. However, the loss-framing requirement in NFR 3.3 contradicts this and should be revised.
+**Gap 2: Self-Report Calibration**
+- Current: AI infers scores from trade descriptions
+- Missing: No mechanism for trader to correct/override scores
+- **Recommendation:** Add FR X.X.X: "The system SHALL provide a mechanism for traders to manually adjust discipline and agency scores with a reason field, and SHOULD log AI/trader score discrepancies for model calibration"
+
+**Gap 3: Anchoring to Session Start**
+- Current: Cumulative P&L starts from first trade
+- Risk: Anchoring bias - trader judges session success entirely relative to first trade
+- **Recommendation:** Add FR X.X.X: "The P&L chart SHOULD display a horizontal reference showing the average P&L per trade as a subtle guide, not prominently"
+
+**Gap 4: Habit Stacking Opportunities**
+- Current: Standalone persistent input
+- Missing: No pre-trade routine integration
+- **Recommendation:** Add FR X.X.X: "The system MAY support a configurable pre-trade 'readiness check' prompt (e.g., 'Any external factors affecting today?') that integrates into the trade entry flow"
 
 ---
 
-## Questions for Other SMEs
+## 5. Specific Recommendations
 
-**For AI/NLP SME:**
-- Can the extraction prompt be structured to detect both internal attribution on losses AND external attribution on wins simultaneously?
-- What is the expected accuracy ceiling for detecting subtle self-deprecating language patterns?
+### 5.1 High-Priority Fixes
 
-**For Data Analytics SME:**
-- The denormalized session metrics (FR 4.4) include consecutive_wins and consecutive_losses - is the calculation logic defined for detecting the 3+ consecutive threshold used in FR 8.2?
+1. **FR 5.6.6** - Remove 40% positive insight quota; replace with quality-based guidance
+2. **FR 4.4.3** - Add confirmation requirement for warnings (not just count-based)
+3. **Add New Requirement** - Cognitive bias mitigation (Section 2 above)
+
+### 5.2 Medium-Priority Additions
+
+1. Self-report calibration mechanism
+2. Loss aversion asymmetric scaling guidance
+3. Smooth color transitions for P&L chart
+
+### 5.3 Low-Priority Enhancements
+
+1. Pre-trade readiness check (habit stacking)
+2. Session summary benchmark (vs. personal average)
+
+---
+
+## 6. Cross-Domain Considerations
+
+### For AI/NLP SME
+- **Q1:** Are the discipline/agency scoring prompts sufficiently robust to handle sarcasm, self-deprecation, and humble-bragging in trade descriptions?
+- **Q2:** Can the model distinguish between "I knew better but didn't follow" (low agency) and "I decided to take the trade despite my rules" (could be high agency if part of adaptive trading)?
+
+### For Data Analytics SME
+- **Q1:** Is 3 trades sufficient for meaningful pattern detection, or should the 5+ threshold from FR 4.5.4 apply to behavioral insights more broadly?
+- **Q2:** Can we implement asymmetric warning thresholds (lower for consecutive losses than wins) in the chart system?
+
+---
+
+## 7. Summary Assessment
+
+| Dimension | Score | Notes |
+|-----------|-------|-------|
+| Accuracy | 8/10 | Core behavioral concepts correct; minor issues with 40% quota |
+| Completeness | 7/10 | Major gaps addressed (bias mitigation, loss aversion); minor gaps remain |
+| Conflicts | 9/10 | Few conflicts; easily resolved with suggested modifications |
+| Feasibility | 9/10 | All requirements are realistic and implementable |
+
+**Final Recommendation:** APPROVE with modifications. The requirements are well-grounded in behavioral psychology and will likely produce positive behavioral outcomes if implemented as specified with the recommended corrections.
+
+---
+
+*Review prepared by: Behavioral Psychology SME*
+*Phase 4 Review - Requirements Draft*

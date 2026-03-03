@@ -1,224 +1,209 @@
-# Data Analytics SME Review: Requirements Draft
-
-**Review Date:** 2026-03-02
-**Phase:** 4 - SME Requirements Review
-**SME Domain:** Data Modeling, Visualization, Analytics, Time-Series
-
----
+# Data Analytics SME - Requirements Review
 
 ## Executive Summary
 
-The requirements draft is well-structured and incorporates most of the Data Analytics SME recommendations from Phase 1. However, there are several gaps related to database schema specifics, historical data access, and visualization implementation details that should be addressed before finalization.
+The requirements draft is well-structured and covers most data analytics concerns. However, there are several gaps and ambiguities that should be addressed before finalization. The majority of concerns relate to incomplete data model specifications, missing visualization details, and undefined data pipeline behaviors.
 
 ---
 
-## Accuracy Assessment
+## 1. Data Model Review
 
-### Correctly Implemented Recommendations
+### 1.1 Accuracy Issues
 
-| Phase 1 Recommendation | Status | Notes |
-|------------------------|--------|-------|
-| 2x2 grid dashboard layout | **IMPLEMENTED** | FR 5.2 specifies layout correctly |
-| P&L top-left, behavioral charts surrounding insights | **IMPLEMENTED** | Correct quadrant placement |
-| Green positive / red negative P&L | **IMPLEMENTED** | FR 5.6 uses exact colors (#22c55e, #ef4444) |
-| Blue positive / amber negative behavioral | **IMPLEMENTED** | FR 5.7 correctly avoids red for behavioral |
-| Step interpolation for discipline/agency | **IMPLEMENTED** | FR 5.4 explicitly states this |
-| Summary header with KPIs | **IMPLEMENTED** | FR 5.5 includes session P&L, trade count, win rate, duration |
-| Denormalized session metrics | **IMPLEMENTED** | FR 4.4 specifies all recommended fields |
-| Composite indexing strategy | **IMPLEMENTED** | NFR 4.1, 4.2 match recommendations |
-| P&L bounds validation | **IMPLEMENTED** | FR 9.1 validates <= $100,000 |
-| Timestamp drift detection | **IMPLEMENTED** | FR 9.2 flags >60 second drift |
-| Score distribution monitoring | **IMPLEMENTED** | FR 9.3 alerts if >30% receive 0 |
-| Dark theme support | **IMPLEMENTED** | NFR 3.6 specifies dark theme |
-| Pulse animation for current state | **IMPLEMENTED** | FR 6.4 |
-| Retention policies | **IMPLEMENTED** | NFR 5.1-5.4 match recommendations |
+**FR 3.1 (Trade Persistence)** - The requirements specify storing trades in a `trades` table but do not define the exact schema. This is a significant gap.
 
-**Accuracy Verdict:** The requirements that were incorporated are accurate and correctly specified.
+- **Issue**: Missing data types for each field
+- **Recommendation**: Add explicit data types:
+  - `pnl` should be DECIMAL(10,2) or NUMERIC to handle precision correctly (never use FLOAT for currency)
+  - `setup_description` should specify VARCHAR with appropriate length (suggest VARCHAR(2000))
+  - `direction` should use ENUM or VARCHAR(10)
+  - `outcome` should use ENUM or VARCHAR(20)
+  - Timestamps should be TIMESTAMPTZ (timezone-aware)
 
----
+**FR 3.1.3 (O(1) Aggregates)** - States "pre-computed columns" but does not specify implementation approach.
 
-## Completeness Assessment
+- **Issue**: Ambiguous whether this means database columns updated via triggers, application-level caching, or materialized columns
+- **Recommendation**: Specify that session aggregates should be stored as columns on the `sessions` table, updated atomically via database triggers or application transaction logic
 
-### Missing Requirements
+**FR 3.1.4 (Index Strategy)** - Only specifies indexing by (session_id, sequence_number).
 
-#### 1. Database Schema Specification (CRITICAL)
+- **Issue**: Missing indexes for common query patterns
+- **Recommendation**: Add indexes for:
+  - `(session_id, created_at)` for time-range queries within sessions
+  - `(created_at)` for cross-session analytics queries
+  - Consider composite index on `(user_id, session_date)` for multi-session queries in future phases
 
-**Issue:** The requirements mention TimescaleDB but do not specify the actual schema structure.
+### 1.2 Completeness Issues
 
-**Missing Requirements:**
-- No explicit `trades` table schema with column definitions
-- No `trading_days` table schema beyond aggregate fields
-- No TimescaleDB hypertable configuration
-- No continuous aggregates for automatic data rollup
+**Missing: Raw Input Storage**
 
-**Recommended Additions:**
-```
-FR X.X: The system SHALL create a `trades` table with the following schema:
-  - id: UUID PRIMARY KEY
-  - trading_day_id: UUID FOREIGN KEY
-  - timestamp: TIMESTAMPTZ NOT NULL
-  - direction: VARCHAR(5) NOT NULL
-  - outcome: VARCHAR(10) NOT NULL
-  - pnl: DECIMAL(12,2) NOT NULL
-  - setup_description: TEXT
-  - discipline_score: INTEGER NOT NULL
-  - agency_score: INTEGER NOT NULL
-  - confidence_score: DECIMAL(3,2)
-  - is_estimated_pnl: BOOLEAN DEFAULT FALSE
+- **Gap**: FR 2.0 extracts structured data but does not require storing the original natural language input
+- **Recommendation**: Add FR 3.1.5: "The system SHALL store the original raw input text in a separate column for audit purposes and future re-processing"
 
-FR X.X: The system SHALL configure `trades` as a TimescaleDB hypertable with time-based partitioning on `timestamp`.
+**Missing: Data Retention Policy**
 
-FR X.X: The system SHALL create a continuous aggregate `trades_hourly_agg` for hourly rollups after 90 days.
-```
+- **Gap**: NFR 4.1 states "no archival required for Phase 1" but lacks specifics
+- **Recommendation**: Add explicit retention requirements:
+  - Active session data: Immediate availability
+  - Historical data: Indefinite storage for Phase 1
+  - Consider adding FR 3.1.6: "The system SHALL support data export in JSON/CSV format for trader backup"
 
-#### 2. Historical Data Access (MEDIUM PRIORITY)
+**Missing: TimescaleDB-Specific Optimizations**
 
-**Issue:** The requirements focus exclusively on current-day display (FR 5.1) with no mechanism for historical analysis.
-
-**Current Gap:** Users cannot view past trading sessions, trends, or perform week-over-week analysis.
-
-**Recommended Addition:**
-```
-FR X.X: The system SHALL provide a historical sessions list view showing past trading days with summary metrics.
-
-FR X.X: The system SHALL allow users to select a historical trading day to view its dashboard (read-only).
-```
-
-#### 3. Chart Library Specification (MEDIUM PRIORITY)
-
-**Issue:** No specification of which charting library will be used.
-
-**Impact:** Cannot verify compatibility with animation, theming, and real-time update requirements.
-
-**Recommended Addition:**
-```
-FR X.X: The system SHALL use Recharts for dashboard visualizations.
-```
-
-#### 4. Average Win/Loss Metrics (LOW PRIORITY)
-
-**Issue:** Phase 1 recommended avg win and avg loss in the summary header, but only trade count and win rate were included.
-
-**Current:** FR 5.5 specifies: Session P&L, Trade count, Win rate, Session duration
-
-**Recommended Addition:**
-```
-FR 5.5 (revision): The dashboard SHALL include a header summary bar with:
-  - Session P&L
-  - Trade count
-  - Win rate
-  - Average Win Amount
-  - Average Loss Amount
-  - Session Duration
-```
-
-#### 5. Timezone Handling (MEDIUM PRIORITY)
-
-**Issue:** No specification of timezone handling for timestamps.
-
-**Recommended Addition:**
-```
-FR X.X: The system SHALL store all timestamps in UTC.
-
-FR X.X: The system SHALL display timestamps in the user's configured timezone.
-```
-
-#### 6. Data Export Capability (LOW PRIORITY)
-
-**Issue:** Phase 1 mentioned export functionality for Phase 2+ but no requirements were added.
-
-**Recommended Addition:**
-```
-FR X.X: The system SHALL provide JSON export of individual trading day data.
-
-FR X.X: The system SHALL provide CSV export of trading day summaries for external analysis.
-```
+- **Gap**: Using TimescaleDB but not leveraging hypertable partitioning
+- **Recommendation**: Add FR 3.1.7: "The trades table SHALL be created as a TimescaleDB hypertable partitioned by time for optimal time-series performance"
 
 ---
 
-## Gaps Assessment
+## 2. Visualization Review
 
-### Phase 1 Recommendations Not Incorporated
+### 2.1 Accuracy Issues
 
-1. **Average Win/Loss Display** - Not in FR 5.5 summary bar
-2. **Structured Session Summary for AI** - FR 7.2 mentions raw records + stats but doesn't specify the `SessionSummary` interface structure
-3. **Export Functionality** - Deferred but no roadmap
-4. **Historical Access** - Not addressed at all
-5. **TimescaleDB Hypertable Configuration** - Mentioned in stack but no schema requirements
+**FR 4.1.4 (Tooltips)** - Specifies showing "trade number, timestamp, and cumulative total" but is incomplete.
 
-### Questions for Other SMEs (Cross-Domain Concerns)
+- **Issue**: Missing critical tooltip data
+- **Recommendation**: Tooltips should also include:
+  - Individual trade P&L (not just cumulative)
+  - Direction (long/short)
+  - Discipline and agency scores for that trade
+
+**FR 4.1.2 (Dynamic Coloring)** - States "green when above zero and red when below zero"
+
+- **Issue**: This creates ambiguity at exactly zero (breakeven)
+- **Recommendation**: Specify handling at exactly zero (suggest neutral gray or split green/red gradient)
+
+### 2.2 Completeness Issues
+
+**Missing: Chart Responsiveness**
+
+- **Gap**: No requirements for responsive behavior on different screen sizes
+- **Recommendation**: Add FR 4.1.6: "The P&L chart SHALL maintain aspect ratio and remain readable on screens as small as 768px width"
+
+**Missing: Animation Specifications**
+
+- **Gap**: FR 4.6.2 specifies "300-500ms smooth transitions" but lacks easing function specification
+- **Recommendation**: Add specific easing (e.g., "ease-out-cubic") to ensure consistent feel across browsers
+
+**Missing: Empty State Chart Rendering**
+
+- **Gap**: FR 4.5 covers message states but not actual chart rendering behavior
+- **Recommendation**: Specify that charts should render with empty state (axes visible, no data line) rather than hiding completely
+
+**Missing: Data Point Limit**
+
+- **Gap**: NFR 4.2 mentions data windowing for 50+ trades but doesn't specify implementation
+- **Recommendation**: Add FR 4.2.6: "When session exceeds 50 trades, charts SHALL display rolling window of last 50 trades with option to view full history"
+
+---
+
+## 3. Data Pipeline Review
+
+### 3.1 Accuracy Issues
+
+**FR 5.1.1 (Session Summary)** - Specifies fields but some calculations are ambiguous.
+
+- **Issue**: `avg_trade_interval_minutes` is potentially misleading
+- **Recommendation**: Specify calculation method: is it mean time between trades, or median? Should it exclude gaps (e.g., lunch breaks)?
+
+**FR 5.3.3 (Insights Cache)** - Specifies caching by "session ID + trade count"
+
+- **Issue**: This cache key is insufficient - should also include hash of recent trades
+- **Recommendation**: FR 5.3.3 should be: "cache by session ID + trade count + hash(last 3 trades)" to prevent stale insights
+
+### 3.2 Completeness Issues
+
+**Missing: Data Quality Validation**
+
+- **Gap**: No explicit data quality checks at ingestion
+- **Recommendation**: Add FR 3.2.1: "The system SHALL validate P&L values are within reasonable bounds (±$100,000 per trade) and flag outliers"
+
+**Missing: Outlier Handling**
+
+- **Gap**: No specification for handling statistical outliers in visualization
+- **Recommendation**: Add FR 4.1.7: "Extreme P&L values (±3 standard deviations) SHALL be flagged in tooltips but still displayed"
+
+---
+
+## 4. Conflict Analysis
+
+### 4.1 Potential Conflicts
+
+**NFR 1.1 vs NFR 1.3 (Latency Requirements)**
+
+- **Observation**: Trade entry must complete in under 3 seconds (including AI extraction), but FR 5.2.1 explicitly says insights generation is outside the SLA
+- **Resolution**: This is correctly handled - no conflict, but worth noting the explicit exclusion
+
+**FR 4.4.1 vs FR 5.5 (Warning Thresholds)**
+
+- **Observation**: Behavioral warnings require minimum 3 trades (FR 4.4.1), but some Tier 1 alerts (FR 5.5.1) trigger on "2+ consecutive losses"
+- **Resolution**: This is correctly handled - FR 4.4.1 applies to visual warnings, FR 5.5.1 applies to insight messages. However, clarify that Tier 1 alerts should also require minimum 3 trades
+
+---
+
+## 5. Additional Recommendations
+
+### 5.1 Recommended New Requirements
+
+**Data Export**
+> FR 3.3.1: "The system SHALL support exporting session data as JSON for backup purposes"
+> FR 3.3.2: "The system SHALL support exporting all trades as CSV for spreadsheet analysis"
+
+**Data Privacy**
+> FR 3.4.1: "P&L data SHALL be stored with encryption at rest using TimescaleDB encryption features"
+> FR 3.4.2: "Setup descriptions SHALL be stored with encryption at rest as they may contain sensitive trading information"
+
+**Cross-Session Analytics**
+> FR 3.5.1: "The system SHALL support querying historical sessions for trend analysis (future Phase 2)"
+> FR 3.5.2: "Session aggregates SHALL be computed using consistent methodology to enable cross-session comparison"
+
+### 5.2 Suggested Wording Changes
+
+**FR 3.1.1** - Change from:
+> "The system SHALL store and update: total P&L, win count, loss count..."
+
+To:
+> "The system SHALL store and update: total_pnl (NUMERIC), win_count (INTEGER), loss_count (INTEGER), breakeven_count (INTEGER), net_discipline_score (INTEGER), net_agency_score (INTEGER), trade_count (INTEGER)"
+
+**FR 4.1.4** - Change from:
+> "The chart SHALL display tooltips on hover showing trade number, timestamp, and cumulative total"
+
+To:
+> "The chart SHALL display tooltips on hover showing: trade sequence number, timestamp (HH:MM:SS), individual trade P&L, cumulative P&L, direction (long/short), discipline score, and agency score"
+
+---
+
+## 6. Summary of Findings
+
+| Category | Count |
+|----------|-------|
+| Accuracy Issues | 5 |
+| Completeness Issues | 8 |
+| Potential Conflicts | 2 (resolved) |
+| Recommended New FRs | 6 |
+| Recommended Wording Changes | 2 |
+
+### Priority Items
+
+1. **Critical**: Define exact database schema with data types (FR 3.1)
+2. **Critical**: Add raw input storage requirement
+3. **High**: Specify session aggregate implementation approach
+4. **High**: Enhance tooltip data specification (FR 4.1.4)
+5. **Medium**: Add data windowing implementation details (NFR 4.2)
+6. **Medium**: Add TimescaleDB hypertable specification
+7. **Low**: Add data export capabilities
+8. **Low**: Consider data encryption requirements
+
+---
+
+## Questions for Other SMEs
 
 **For AI/NLP SME:**
-- How should the structured session summary be formatted for the insights agent? Should we use the `SessionSummary` interface format with pnl statistics, outcome distribution, discipline/agency trends, and recentTrades?
+- How should the system handle trades where P&L extraction confidence is "low"? Should these trades be excluded from behavioral score calculations in insights?
 
 **For Behavioral Psychology SME:**
-- Should historical session comparison be included (e.g., "This week's discipline is 20% lower than last week")?
+- Should the warning system (FR 4.4) also apply to agency scores, or is discipline the primary indicator for visual warnings?
 
 ---
 
-## Conflicts Assessment
-
-### No Major Conflicts Found
-
-The requirements are consistent with the tech stack. Minor observations:
-
-1. **TimescaleDB Usage:** The requirements mention TimescaleDB but don't fully leverage its features. This is a gap, not a conflict - the implementation will naturally use TimescaleDB capabilities.
-
-2. **Real-Time Updates:** The WebSocket + polling fallback (NFR 2.3) is well-designed and doesn't conflict with other requirements.
-
-3. **Color Scheme:** Correctly uses blue/amber for behavioral to avoid loss aversion triggers, as recommended.
-
----
-
-## Best Practices Assessment
-
-### Data Engineering Standards
-
-| Aspect | Status | Notes |
-|--------|--------|-------|
-| Indexing strategy | **GOOD** | Composite indexes properly specified |
-| Denormalization | **GOOD** | Session metrics for O(1) queries |
-| Retention policy | **GOOD** | Tiered approach (hot/cold/monthly) |
-| Data validation | **GOOD** | P&L bounds, timestamp drift, score distribution |
-| Real-time optimization | **GOOD** | Adaptive throttling, debouncing |
-
-### Recommendations for Phase 5 (Tech Spec)
-
-The following should be added to the technical specification:
-
-1. **Complete DDL for all tables** (trades, trading_days, insights)
-2. **TimescaleDB hypertable creation scripts**
-3. **Continuous aggregate definitions** for automatic hourly/daily rollups
-4. **Recharts component specifications** with proper typing
-5. **API response schemas** for dashboard endpoints
-
----
-
-## Summary of Required Changes
-
-### Critical (Must Fix)
-1. Add database schema specifications (tables, columns, types)
-2. Specify TimescaleDB hypertable configuration
-
-### Medium Priority (Should Fix)
-3. Add historical sessions access requirements
-4. Specify chart library (Recharts recommended)
-5. Add average win/loss to summary header
-6. Add timezone handling requirements
-
-### Low Priority (Nice to Have)
-7. Add data export requirements
-8. Specify structured SessionSummary interface for AI context
-
----
-
-## Conclusion
-
-The requirements draft is **85% complete** from a data analytics perspective. The core recommendations from Phase 1 have been correctly incorporated, and the data model design is sound. The main gaps are in schema specification and historical data access, which should be addressed before moving to technical specification.
-
-**Recommendation:** Approve with the additions noted above for Phase 5 technical specification.
-
----
-
-*Reviewed by: Data Analytics SME*
-*Tech Stack: Next.js, TypeScript, TimescaleDB, Drizzle ORM*
+*Review prepared by: Data Analytics SME Agent*
+*Date: 2026-03-02*

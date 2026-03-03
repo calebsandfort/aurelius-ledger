@@ -1,73 +1,86 @@
-# Questions for Behavioral Psychology SME
+# Questions for Behavioral Psychology SME (Phase 2)
 
-*Cross-SME questions extracted from Phase 1 analyses*
+## Overview
+
+This file contains questions from other SMEs that require behavioral psychology expertise to answer.
 
 ---
 
 ## From AI/NLP SME
 
-### Context
+**Source:** `/home/csandfort/Documents/source/repos/aurelius-ledger/planning-docs-output/phase-1/ai-nlp-sme-analysis.md`
 
-The AI/NLP SME has analyzed the prompt engineering and extraction architecture requirements and requires validation on behavioral psychology principles.
+### Question 1: Discipline/Agency Scoring Calibration
 
-### Questions
+**Context:** The AI/NLP analysis proposes a scoring schema (-1, 0, +1) for discipline and agency based on textual analysis of trade descriptions.
 
-**1. Discipline/Agency Scoring Heuristics**
+**Question:** The current scoring schema (-1, 0, +1) is simple, but are there common trading behaviors that might be misclassified? For example, "scaling out" or "adding to a position" — should these be neutral, positive, or negative signals?
 
-Are the scoring heuristics defined for trade extraction aligned with trading psychology principles? Specifically:
-
-- Does "waited for confirmation" universally indicate discipline, or are there scenarios where patience could be weakness (analysis paralysis)?
-- How should we handle cases where discipline and agency conflict (e.g., "stuck to my plan even though I knew it was wrong")?
-
-*Source: AI/NLP SME Analysis - "Questions for Other SMEs > For Behavioral Psychology SME"*
+**Reference:** Section "Questions for Other SMEs > For Behavioral Psychology SME" (lines 312-314)
 
 ---
 
-**2. Insights Actionability: Behavioral Pattern Priorities**
+### Question 2: Insight Actionability
 
-What behavioral patterns should take priority in the insights? Should we flag tilt risk based on:
+**Context:** The AI/NLP analysis discusses how to generate AI insights from trade data and behavioral scores.
 
-- Consecutive losses?
-- Discipline score dropping below threshold?
-- Agency score trend (becoming more reactive)?
+**Question:** What specific behavioral patterns would be most valuable to surface in the AI insights panel? Should the system warn about specific risk factors (e.g., "tilt risk elevated" based on recent loss streak)?
 
-*Source: AI/NLP SME Analysis - "Questions for Other SMEs > For Behavioral Psychology SME"*
+**Reference:** Section "Questions for Other SMEs > For Behavioral Psychology SME" (lines 315-316)
 
 ---
 
-**3. Edge Case Handling: Self-Deprecating Language**
+### Question 3: Score Trajectory Interventions
 
-How should we interpret self-deprecating language like "I probably got lucky there" - does it indicate low agency or just trader humility?
+**Context:** Behavioral psychology expertise is needed to determine appropriate interventions when patterns change.
 
-*Source: AI/NLP SME Analysis - "Questions for Other SMEs > For Behavioral Psychology SME"*
+**Question:** If a trader's discipline score starts positive and trends negative over a session, what interventions or insights would be most helpful? Is a warning appropriate, or would that be counterproductive during active trading?
+
+**Reference:** Section "Questions for Other SMEs > For Behavioral Psychology SME" (lines 317-318)
 
 ---
 
 ## From Data Analytics SME
 
-### Context
+**Source:** `/home/csandfort/Documents/source/repos/aurelius-ledger/planning-docs-output/phase-1/data-analytics-sme-analysis.md`
 
-The Data Analytics SME has analyzed the dashboard and visualization requirements and requires guidance on behavioral pattern detection.
+### Question 4: Visual Warning Thresholds
 
-### Questions
+**Context:** The data analytics analysis discusses chart design and real-time updates for discipline and agency score visualizations.
 
-**1. Visual Warning Patterns**
+**Question:** In the discipline and agency score charts, what time window or trade count threshold should trigger a visual warning (e.g., "tilting" indicator) when negative trends are detected?
 
-The dashboard shows cumulative discipline and agency scores over time. What patterns should trigger a visual warning to the trader? For example:
-
-- Is a 3-trade decline in discipline score actionable?
-- Should consecutive losses with negative discipline scores show a specific alert?
-
-*Source: Data Analytics SME Analysis - "Questions for Other SMEs > For Behavioral Psychology SME"*
+**Reference:** Section "Questions for Other SMEs > For Behavioral Psychology SME" (lines 237-238)
 
 ---
 
-**2. Insight Categories: Mid-Session vs. Post-Session**
+### Question 5: Behavioral Recommendations in Insights
 
-For the AI Insights, what insight categories have the highest actionability for mid-session correction vs. post-session reflection? Should the insights be different based on session phase (early vs. late in session)?
+**Context:** The AI insights panel could include actionable behavioral recommendations.
 
-*Source: Data Analytics SME Analysis - "Questions for Other SMEs > For Behavioral Psychology SME"*
+**Question:** Should the AI insights panel include specific behavioral recommendations (e.g., "take a break"), and if so, what score thresholds should trigger such interventions?
+
+**Reference:** Section "Questions for Other SMEs > For Behavioral Psychology SME" (lines 239-240)
 
 ---
 
-*File generated for Phase 2 of the Aurelius Ledger requirements elaboration workflow.*
+### Question 6: Additional Behavioral Metrics
+
+**Context:** The data analytics SME is considering what metrics to visualize beyond discipline and agency scores.
+
+**Question:** Are there other behavioral metrics beyond discipline and agency that would be valuable to visualize on the dashboard? For example, patience (time between trades), sizing consistency, or setup diversity.
+
+**Reference:** Section "Questions for Other SMEs > For Behavioral Psychology SME" (lines 241-242)
+
+---
+
+## Summary
+
+The Behavioral Psychology SME is asked to provide guidance on:
+
+1. Scoring calibration for edge cases (scaling, adding to positions)
+2. Actionable insight categories for the AI panel
+3. Appropriate interventions when scores trend negatively
+4. Visual warning thresholds for behavioral charts
+5. Score thresholds for behavioral recommendations (e.g., take a break)
+6. Additional behavioral metrics worth tracking and visualizing

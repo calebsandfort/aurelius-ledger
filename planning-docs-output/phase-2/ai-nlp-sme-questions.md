@@ -1,87 +1,116 @@
-# Questions for AI/NLP SME
+# Questions for AI/NLP SME (Phase 2)
 
-*Cross-SME questions extracted from Phase 1 analyses*
+## Overview
+
+This file contains questions from other SMEs that require AI/NLP expertise to answer.
 
 ---
 
 ## From Behavioral Psychology SME
 
-### Context
+**Source:** `/home/csandfort/Documents/source/repos/aurelius-ledger/planning-docs-output/phase-1/behavioral-psychology-sme-analysis.md`
 
-The Behavioral Psychology SME has analyzed the requirements from a trading psychology perspective and requires clarification on several AI/NLP implementation details.
+### Question 1: Prompt Calibration for Behavioral Scores
 
-### Questions
+**Context:** The behavioral psychology analysis discusses discipline and agency scoring (-1, 0, +1) for trading behavior analysis.
 
-**1. Extraction Reliability: Confidence Threshold**
+**Question:** How should we structure the system prompt to ensure discipline and agency scoring is consistent across different writing styles? Should we include few-shot examples of trades with known outcomes to calibrate the LLM's scoring behavior?
 
-What confidence threshold should the LLM return for discipline/agency scores? Should the system surface low-confidence scores differently to the user?
-
-*Source: Behavioral Psychology SME Analysis - "Questions for Other SMEs > For AI/NLP SME"*
+**Reference:** Section "Questions for Other SMEs > For AI/NLP SME" (lines 189-194)
 
 ---
 
-**2. Temporal Context in Insights**
+### Question 2: Retry Mechanism for Zero Scores
 
-How much session history should be included in the insights prompt? Should we include all trades, or only recent ones? What's the optimal trade count context window?
+**Context:** The scoring system relies on the LLM to extract behavioral signals from trade descriptions.
 
-*Source: Behavioral Psychology SME Analysis - "Questions for Other SMEs > For AI/NLP SME"*
+**Question:** What retry mechanism should be used when scores come back as 0 repeatedly — is this a signal that the prompt needs adjustment?
 
----
-
-**3. Linguistic Pattern Detection**
-
-Beyond explicit keywords ("chased," "waited"), can the model detect subtler linguistic patterns that indicate emotional state (sentence length, hedging language, causal attributions)?
-
-*Source: Behavioral Psychology SME Analysis - "Questions for Other SMEs > For AI/NLP SME"*
+**Reference:** Section "Questions for Other SMEs > For AI/NLP SME" (lines 189-194)
 
 ---
 
-**4. Insight Personalization vs. Privacy**
+### Question 3: Insights Generation Token Budget
 
-How can we tune insights to individual traders without storing potentially sensitive behavioral profiles? Is federated learning appropriate here?
+**Context:** The HLRD specifies a 3-second SLA for trade entry to dashboard update. Insights are part of this flow.
 
-*Source: Behavioral Psychology SME Analysis - "Questions for Other SMEs > For AI/NLP SME"*
+**Question:** What is the optimal token budget for the insights generation to ensure it completes within the 3-second SLA? Should insights be generated asynchronously after the trade is committed to avoid blocking the UI?
+
+**Reference:** Section "Questions for Other SMEs > For AI/NLP SME" (lines 196-198)
 
 ---
 
-**5. Ambiguous P&L Handling**
+### Question 4: Score Confidence Handling
 
-The HLRD mentions "small winner" type descriptions. What specific fallback logic should we use, and should we prompt the user for clarification instead of guessing?
+**Context:** The behavioral scoring system assigns discrete values (-1, 0, +1) based on textual analysis of trade descriptions.
 
-*Source: Behavioral Psychology SME Analysis - "Questions for Other SMEs > For AI/NLP SME"*
+**Question:** Should there be a confidence score alongside discipline/agency scores? If the LLM is uncertain, should we default to 0 or surface that ambiguity?
+
+**Reference:** Section "Questions for Other SMEs > For AI/NLP SME" (lines 200-201)
+
+---
+
+### Question 5: Insight Generation Async vs Sync
+
+**Context:** Discussion of trade entry latency requirements.
+
+**Question:** Should insights be generated asynchronously after the trade is committed to avoid blocking the UI? If so, what should the UI show while insights are generating?
+
+**Reference:** Section "Questions for Other SMEs > For AI/NLP SME" (lines 196-198)
+
+---
+
+### Question 6: Few-Shot Examples for Scoring Calibration
+
+**Context:** The behavioral psychology SME is concerned with consistency of discipline/agency scoring.
+
+**Question:** Should we include few-shot examples of trades with known outcomes to calibrate the LLM's scoring behavior? What examples would be most valuable for distinguishing between positive, negative, and neutral behavioral signals?
+
+**Reference:** Section "Questions for Other SMEs > For AI/NLP SME" (lines 192-194)
 
 ---
 
 ## From Data Analytics SME
 
-### Context
+**Source:** `/home/csandfort/Documents/source/repos/aurelius-ledger/planning-docs-output/phase-1/data-analytics-sme-analysis.md`
 
-The Data Analytics SME has analyzed the data modeling and visualization requirements and requires clarification on AI/NLP extraction specifics.
+### Question 7: Insights Data Format
 
-### Questions
+**Context:** The data analytics analysis discusses dashboard data requirements and real-time updates.
 
-**1. Implicit P&L Signals**
+**Question:** What data format should be passed to the insights generation agent — raw trade records with all fields, pre-aggregated session statistics, or a structured combination? Should the agent receive the data as a JSON object or as a formatted text summary?
 
-How should the extraction agent handle implicit P&L signals when no dollar amount is provided (e.g., "took a small winner," "barely scratched," "big loser")? Should we:
-
-- Map to approximate dollar thresholds (e.g., <$100 = small, >$500 = big)?
-- Use a confidence score and default to requiring explicit amounts?
-- Assign a special marker requiring manual review?
-
-*Source: Data Analytics SME Analysis - "Questions for Other SMEs > For AI/NLP SME"*
+**Reference:** Section "Questions for Other SMEs > For AI/NLP SME" (lines 227-229)
 
 ---
 
-**2. Few-Shot Examples Diversity**
+### Question 8: Insights Regeneration Strategy
 
-For the few-shot examples in the system prompt, what is the recommended diversity of trading scenarios? Should we include:
+**Context:** Real-time dashboard updates need to balance freshness with performance.
 
-- Edge cases (breakeven trades, exactly $0 P&L)?
-- Ambiguous discipline/agency language for score calibration?
-- Different writing styles (terse vs. verbose descriptions)?
+**Question:** For real-time dashboard updates, should insights be regenerated after every trade, or should there be a debounce/throttle mechanism? What's the expected latency for insights generation?
 
-*Source: Data Analytics SME Analysis - "Questions for Other SMEs > For AI/NLP SME"*
+**Reference:** Section "Questions for Other SMEs > For AI/NLP SME" (lines 231-232)
 
 ---
 
-*File generated for Phase 2 of the Aurelius Ledger requirements elaboration workflow.*
+### Question 9: Edge Case Handling for Small Sessions
+
+**Context:** Early in a trading session, there may be insufficient data for pattern detection.
+
+**Question:** How should the insights agent handle edge cases like sessions with only 1-2 trades (insufficient data for pattern detection)?
+
+**Reference:** Section "Questions for Other SMEs > For AI/NLP SME" (lines 233-234)
+
+---
+
+## Summary
+
+The AI/NLP SME is asked to provide guidance on:
+
+1. Prompt structure and few-shot calibration for behavioral scoring
+2. Confidence scoring and retry mechanisms
+3. Token budgets and async vs sync insights generation
+4. Data format for insights generation
+5. Debounce/throttle strategies for real-time updates
+6. Edge case handling for minimal data scenarios
