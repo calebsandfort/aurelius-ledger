@@ -53,3 +53,7 @@ drizzle/meta/
 # Misc
 *.log
 *.tsbuildinfo
+
+# Claude
+.claude/.claude/
+frontend/next-env.d.ts
