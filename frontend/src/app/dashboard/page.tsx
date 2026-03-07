@@ -111,7 +111,19 @@ export default function DashboardPage() {
               {user?.name ? `Welcome back, ${user.name}` : 'Your trading session'}
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            <Link
+              href="/docs/architecture/index.html"
+              className="font-bold uppercase tracking-widest text-xs text-slate-400 hover:text-slate-200 px-3 py-2"
+            >
+              Docs
+            </Link>
+            <Link
+              href="/help/getting-started/index.html"
+              className="font-bold uppercase tracking-widest text-xs text-slate-400 hover:text-slate-200 px-3 py-2"
+            >
+              Help
+            </Link>
             <Button variant="outline" asChild>
               <Link href="/chat">Chat</Link>
             </Button>

@@ -1,0 +1,48 @@
+:root {
+  /* Match the app's dark trading aesthetic */
+  --vp-c-bg: #020617;
+  --vp-c-bg-alt: #0F172A;
+  --vp-c-bg-soft: #0F172A;
+  --vp-c-bg-elv: #1E293B;
+
+  --vp-c-text-1: #F8FAFC;
+  --vp-c-text-2: #94A3B8;
+  --vp-c-text-3: #64748B;
+
+  --vp-c-border: #1E293B;
+  --vp-c-divider: #1E293B;
+
+  --vp-c-brand-1: #D97706;
+  --vp-c-brand-2: #F59E0B;
+  --vp-c-brand-3: #FBBF24;
+  --vp-c-brand-soft: rgba(217, 119, 6, 0.1);
+
+  --vp-c-tip-1: #8B5CF6;
+  --vp-c-tip-2: #A78BFA;
+  --vp-c-tip-soft: rgba(139, 92, 246, 0.1);
+
+  --vp-font-family-base: 'Inter', sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', monospace;
+
+  --vp-code-bg: #0F172A;
+  --vp-code-color: #F8FAFC;
+
+  --vp-sidebar-bg-color: #020617;
+}
+
+/* Force dark appearance on all elements */
+.dark {
+  --vp-c-bg: #020617;
+  --vp-c-bg-alt: #0F172A;
+  --vp-c-bg-soft: #0F172A;
+}
+
+/* Sidebar active link uses amber */
+.VPSidebarItem.is-active > .item > .link > .text {
+  color: var(--vp-c-brand-2) !important;
+}
+
+/* Code blocks match app's slate-900 */
+.vp-code-group .tabs label.active {
+  color: var(--vp-c-brand-2);
+}
