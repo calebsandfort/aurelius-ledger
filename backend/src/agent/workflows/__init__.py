@@ -1,1 +1,1 @@
-"""Agent workflows package."""
+"""Agent workflows for insights caching."""
