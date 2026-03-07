@@ -16,8 +16,10 @@ import { DisciplineChart } from "@/components/charts/DisciplineChart"
 import { AgencyChart } from "@/components/charts/AgencyChart"
 import { WarningIndicator } from "@/components/charts/WarningIndicator"
 import { EmptyStates } from "@/components/charts/EmptyStates"
+import { InsightsPanel } from "@/components/insights/InsightsPanel"
 import { useBehavioralWarnings } from "@/hooks/useBehavioralWarnings"
 import type { TradeResponse } from "@/lib/schemas/trade"
+import type { Insight } from "@/lib/schemas/insights"
 
 /**
  * DashboardPage - Main trading dashboard
@@ -32,6 +34,9 @@ import type { TradeResponse } from "@/lib/schemas/trade"
 export default function DashboardPage() {
   const { user, isPending: authPending, signOut } = useAuth()
   const [trades, setTrades] = useState<TradeResponse[]>([])
+  const [insights, setInsights] = useState<Insight[]>([])
+  const [insightsGeneratedAt, setInsightsGeneratedAt] = useState<string | undefined>()
+  const [insightsLoading, setInsightsLoading] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -57,6 +62,32 @@ export default function DashboardPage() {
       fetchTrades()
     }
   }, [user])
+
+  // Fetch insights when trades are loaded
+  useEffect(() => {
+    async function fetchInsights() {
+      if (trades.length < 5) {
+        setInsights([])
+        return
+      }
+
+      setInsightsLoading(true)
+      try {
+        const response = await fetch('/api/v1/insights')
+        if (response.ok) {
+          const data = await response.json()
+          setInsights(data.insights || [])
+          setInsightsGeneratedAt(data.generated_at)
+        }
+      } catch (err) {
+        console.error('Failed to fetch insights:', err)
+      } finally {
+        setInsightsLoading(false)
+      }
+    }
+
+    fetchInsights()
+  }, [trades.length])
 
   // Get warning state
   const warningState = useBehavioralWarnings(trades)
@@ -163,7 +194,7 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Insights Panel Placeholder */}
+        {/* Insights Panel */}
         <Card className="mt-6 bg-slate-900 border-slate-800">
           <CardHeader>
             <CardTitle className="text-slate-100">Session Insights</CardTitle>
@@ -182,35 +213,11 @@ export default function DashboardPage() {
                 {5 - trades.length === 1 ? 'trade' : 'trades'} needed.
               </p>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg bg-slate-800/50">
-                  <p className="text-sm text-slate-400">Total Trades</p>
-                  <p className="text-2xl font-bold text-slate-100">{trades.length}</p>
-                </div>
-                <div className="p-4 rounded-lg bg-slate-800/50">
-                  <p className="text-sm text-slate-400">Win Rate</p>
-                  <p className="text-2xl font-bold text-slate-100">
-                    {trades.filter((t) => t.outcome === 'win').length > 0
-                      ? Math.round(
-                          (trades.filter((t) => t.outcome === 'win').length / trades.length) * 100
-                        )
-                      : 0}
-                    %
-                  </p>
-                </div>
-                <div className="p-4 rounded-lg bg-slate-800/50">
-                  <p className="text-sm text-slate-400">Net Discipline</p>
-                  <p
-                    className={`text-2xl font-bold ${
-                      trades.reduce((sum, t) => sum + t.discipline_score, 0) >= 0
-                        ? 'text-green-500'
-                        : 'text-red-500'
-                    }`}
-                  >
-                    {trades.reduce((sum, t) => sum + t.discipline_score, 0)}
-                  </p>
-                </div>
-              </div>
+              <InsightsPanel
+                insights={insights}
+                generatedAt={insightsGeneratedAt}
+                isLoading={insightsLoading}
+              />
             )}
           </CardContent>
         </Card>
