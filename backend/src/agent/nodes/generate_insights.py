@@ -391,7 +391,7 @@ async def call_insights_llm(
 
     return InsightsResponse(
         insights=insight_objects,
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
         trade_count=len(trades)
     )
 
@@ -426,7 +426,7 @@ async def generate_insights_node(state: InsightsAgentState) -> InsightsAgentStat
         message = get_small_session_message(trade_count)
         insights = InsightsResponse(
             insights=[Insight(category="pattern", message=message)],
-            generated_at=datetime.now(timezone.utc).isoformat(),
+            generated_at=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
             trade_count=trade_count
         )
         return {"insights": insights}
@@ -446,7 +446,7 @@ async def generate_insights_node(state: InsightsAgentState) -> InsightsAgentStat
 
         insights = InsightsResponse(
             insights=rule_insights[:3],  # Max 3 insights
-            generated_at=datetime.now(timezone.utc).isoformat(),
+            generated_at=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
             trade_count=trade_count
         )
         return {"insights": insights}
@@ -471,14 +471,14 @@ async def generate_insights_node(state: InsightsAgentState) -> InsightsAgentStat
 
             insights = InsightsResponse(
                 insights=final_insights,
-                generated_at=datetime.now(timezone.utc).isoformat(),
+                generated_at=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
                 trade_count=trade_count
             )
         except Exception:
             # Fallback to rule-based insights
             insights = InsightsResponse(
                 insights=rule_insights[:3],
-                generated_at=datetime.now(timezone.utc).isoformat(),
+                generated_at=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
                 trade_count=trade_count
             )
         return {"insights": insights}
