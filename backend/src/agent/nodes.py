@@ -1,12 +1,11 @@
-from langchain_core.messages import SystemMessage
-from langchain_openai import ChatOpenAI
-
-from src.agent.prompts import SYSTEM_PROMPT
-from src.agent.state import AgentState
+# Re-export from chat module for backward compatibility
+from src.agent.chat import chat_node  # noqa: F401
 
 
-async def chat_node(state: AgentState) -> AgentState:
-    model = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
-    messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
-    response = await model.ainvoke(messages)
-    return {"messages": [response]}
+def __getattr__(name: str):
+    """Allow importing from src.agent.nodes.extract_trade via directory."""
+    if name == "extract_trade":
+        from src.agent.nodes import extract_trade
+
+        return extract_trade
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
