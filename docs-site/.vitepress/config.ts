@@ -4,6 +4,8 @@ export default defineConfig({
   title: 'Aurelius Ledger — Developer Docs',
   description: 'Technical documentation for developers and AI assistants',
   base: '/docs/',
+  outDir: '../frontend/public/docs',
+  cleanUrls: true,
   appearance: 'dark',
   ignoreDeadLinks: true,
   themeConfig: {

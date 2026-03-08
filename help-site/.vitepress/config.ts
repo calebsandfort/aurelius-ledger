@@ -4,6 +4,8 @@ export default defineConfig({
   title: 'Aurelius Ledger — Help',
   description: 'User guide and walkthroughs',
   base: '/help/',
+  outDir: '../frontend/public/help',
+  cleanUrls: true,
   appearance: 'dark',
   themeConfig: {
     nav: [

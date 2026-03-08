@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vitepress dev",
     "build": "vitepress build",
+    "postbuild": "node ../scripts/vitepress-cleanurls.mjs ../frontend/public/help",
     "preview": "vitepress preview"
   },
   "devDependencies": {

@@ -4,6 +4,7 @@ const protectedRoutes = ["/dashboard", "/chat"]
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+
   const isProtected = protectedRoutes.some((route) =>
     pathname.startsWith(route)
   )
