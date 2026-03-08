@@ -57,3 +57,6 @@ drizzle/meta/
 # Claude
 .claude/.claude/
 frontend/next-env.d.ts
+
+# VitePress
+**/.vitepress/cache/
