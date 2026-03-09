@@ -17,6 +17,7 @@ import { AgencyChart } from "@/components/charts/AgencyChart"
 import { WarningIndicator } from "@/components/charts/WarningIndicator"
 import { EmptyStates } from "@/components/charts/EmptyStates"
 import { InsightsPanel } from "@/components/insights/InsightsPanel"
+import { CopilotSidebar } from "@/components/chat/copilot-sidebar"
 import { useBehavioralWarnings } from "@/hooks/useBehavioralWarnings"
 import type { TradeResponse } from "@/lib/schemas/trade"
 import type { Insight } from "@/lib/schemas/insights"
@@ -101,138 +102,145 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 p-6">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-100">Dashboard</h1>
-            <p className="text-slate-400 mt-1">
-              {user?.name ? `Welcome back, ${user.name}` : 'Your trading session'}
-            </p>
-          </div>
-          <div className="flex gap-3 items-center">
-            <Link
-              href="/docs/architecture/index.html"
-              className="font-bold uppercase tracking-widest text-xs text-slate-400 hover:text-slate-200 px-3 py-2"
-            >
-              Docs
-            </Link>
-            <Link
-              href="/help/getting-started/index.html"
-              className="font-bold uppercase tracking-widest text-xs text-slate-400 hover:text-slate-200 px-3 py-2"
-            >
-              Help
-            </Link>
-            <Button variant="outline" asChild>
-              <Link href="/chat">Chat</Link>
-            </Button>
-            <Button variant="ghost" onClick={signOut}>
-              Sign Out
-            </Button>
-          </div>
-        </div>
-
-        {/* Warning Indicator */}
-        <div className="mb-4">
-          <WarningIndicator
-            level={warningState.level}
-            message={warningState.message}
-            triggeredBy={warningState.triggeredBy}
-          />
-        </div>
-
-        {/* P&L Chart - Largest and most prominent */}
-        <Card className="mb-6 bg-slate-900 border-slate-800">
-          <CardHeader>
-            <CardTitle className="text-slate-100">Cumulative P&L</CardTitle>
-            <CardDescription className="text-slate-400">
-              Running total of your profit and loss
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {trades.length < 5 ? (
-              <EmptyStates tradeCount={trades.length} className="h-[300px]" />
-            ) : (
-              <PnLChart trades={trades} isLoading={isLoading} />
-            )}
-            {isLoading && (
-              <div className="flex items-center justify-center h-[300px]">
-                <p className="text-slate-400">Loading...</p>
+    <main className="min-h-screen bg-slate-950">
+      <div className="flex h-screen">
+        {/* Main Dashboard Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="mx-auto max-w-7xl">
+            {/* Header */}
+            <div className="mb-8 flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-100">Dashboard</h1>
+                <p className="text-slate-400 mt-1">
+                  {user?.name ? `Welcome back, ${user.name}` : 'Your trading session'}
+                </p>
               </div>
-            )}
-            {!isLoading && error && (
-              <div className="flex items-center justify-center h-[300px]">
-                <p className="text-red-400">Error: {error}</p>
+              <div className="flex gap-3 items-center">
+                <Link
+                  href="/docs/architecture/index.html"
+                  className="font-bold uppercase tracking-widest text-xs text-slate-400 hover:text-slate-200 px-3 py-2"
+                >
+                  Docs
+                </Link>
+                <Link
+                  href="/help/getting-started/index.html"
+                  className="font-bold uppercase tracking-widest text-xs text-slate-400 hover:text-slate-200 px-3 py-2"
+                >
+                  Help
+                </Link>
+                <Button variant="ghost" onClick={signOut}>
+                  Sign Out
+                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
 
-        {/* Discipline and Agency Charts - Side by side */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Discipline Chart */}
-          <Card className="bg-slate-900 border-slate-800">
-            <CardHeader>
-              <CardTitle className="text-slate-100">Discipline Score</CardTitle>
-              <CardDescription className="text-slate-400">
-                Track your trading discipline over time
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {trades.length === 0 ? (
-                <EmptyStates tradeCount={0} className="h-[250px]" />
-              ) : (
-                <DisciplineChart trades={trades} isLoading={isLoading} />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Agency Chart */}
-          <Card className="bg-slate-900 border-slate-800">
-            <CardHeader>
-              <CardTitle className="text-slate-100">Agency Score</CardTitle>
-              <CardDescription className="text-slate-400">
-                Track your trading agency over time
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {trades.length === 0 ? (
-                <EmptyStates tradeCount={0} className="h-[250px]" />
-              ) : (
-                <AgencyChart trades={trades} isLoading={isLoading} />
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Insights Panel */}
-        <Card className="mt-6 bg-slate-900 border-slate-800">
-          <CardHeader>
-            <CardTitle className="text-slate-100">Session Insights</CardTitle>
-            <CardDescription className="text-slate-400">
-              AI-powered analysis of your trading patterns
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {trades.length === 0 ? (
-              <p className="text-slate-500 text-sm">
-                Log trades to see AI-powered insights about your trading patterns.
-              </p>
-            ) : trades.length < 5 ? (
-              <p className="text-slate-500 text-sm">
-                Keep logging trades to unlock personalized insights. {5 - trades.length} more{' '}
-                {5 - trades.length === 1 ? 'trade' : 'trades'} needed.
-              </p>
-            ) : (
-              <InsightsPanel
-                insights={insights}
-                generatedAt={insightsGeneratedAt}
-                isLoading={insightsLoading}
+            {/* Warning Indicator */}
+            <div className="mb-4">
+              <WarningIndicator
+                level={warningState.level}
+                message={warningState.message}
+                triggeredBy={warningState.triggeredBy}
               />
-            )}
-          </CardContent>
-        </Card>
+            </div>
+
+            {/* P&L Chart - Largest and most prominent */}
+            <Card className="mb-6 bg-slate-900 border-slate-800">
+              <CardHeader>
+                <CardTitle className="text-slate-100">Cumulative P&L</CardTitle>
+                <CardDescription className="text-slate-400">
+                  Running total of your profit and loss
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {trades.length < 5 ? (
+                  <EmptyStates tradeCount={trades.length} className="h-[300px]" />
+                ) : (
+                  <PnLChart trades={trades} isLoading={isLoading} />
+                )}
+                {isLoading && (
+                  <div className="flex items-center justify-center h-[300px]">
+                    <p className="text-slate-400">Loading...</p>
+                  </div>
+                )}
+                {!isLoading && error && (
+                  <div className="flex items-center justify-center h-[300px]">
+                    <p className="text-red-400">Error: {error}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Discipline and Agency Charts - Side by side */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Discipline Chart */}
+              <Card className="bg-slate-900 border-slate-800">
+                <CardHeader>
+                  <CardTitle className="text-slate-100">Discipline Score</CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Track your trading discipline over time
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {trades.length === 0 ? (
+                    <EmptyStates tradeCount={0} className="h-[250px]" />
+                  ) : (
+                    <DisciplineChart trades={trades} isLoading={isLoading} />
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Agency Chart */}
+              <Card className="bg-slate-900 border-slate-800">
+                <CardHeader>
+                  <CardTitle className="text-slate-100">Agency Score</CardTitle>
+                  <CardDescription className="text-slate-400">
+                    Track your trading agency over time
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {trades.length === 0 ? (
+                    <EmptyStates tradeCount={0} className="h-[250px]" />
+                  ) : (
+                    <AgencyChart trades={trades} isLoading={isLoading} />
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Insights Panel */}
+            <Card className="mt-6 bg-slate-900 border-slate-800">
+              <CardHeader>
+                <CardTitle className="text-slate-100">Session Insights</CardTitle>
+                <CardDescription className="text-slate-400">
+                  AI-powered analysis of your trading patterns
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {trades.length === 0 ? (
+                  <p className="text-slate-500 text-sm">
+                    Log trades to see AI-powered insights about your trading patterns.
+                  </p>
+                ) : trades.length < 5 ? (
+                  <p className="text-slate-500 text-sm">
+                    Keep logging trades to unlock personalized insights. {5 - trades.length} more{' '}
+                    {5 - trades.length === 1 ? 'trade' : 'trades'} needed.
+                  </p>
+                ) : (
+                  <InsightsPanel
+                    insights={insights}
+                    generatedAt={insightsGeneratedAt}
+                    isLoading={insightsLoading}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* AI Chat Sidebar */}
+        <div className="w-96 border-l border-slate-800">
+          <CopilotSidebar />
+        </div>
       </div>
     </main>
   )

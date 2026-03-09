@@ -175,14 +175,14 @@ export async function POST(request: NextRequest) {
         sessionId: currentSession.id,
         sequenceNumber: nextSequenceNumber,
         rawInput: raw_input,
-        direction: 'long', // Default, would be extracted by AI
-        outcome: 'win', // Default, would be extracted by AI
-        pnl: 0, // Default, would be extracted by AI
+        direction: 'long',
+        outcome: 'win',
+        pnl: '0',
         disciplineScore: 0,
         agencyScore: 0,
         disciplineConfidence: 'low',
         agencyConfidence: 'low',
-      })
+      } as const)
       .returning()
 
     // Update session trade count

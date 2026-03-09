@@ -44,7 +44,7 @@ export function AgencyChart({ trades, isLoading, className }: AgencyChartProps) 
     if (limitedTrades.length === 0) return []
 
     let runningSum = 0
-    const data = limitedTrades.map((trade, index) => {
+    const data: ChartDataPoint[] = limitedTrades.map((trade, index) => {
       runningSum += trade.agency_score
       return {
         sequence: index + 1,
@@ -135,9 +135,10 @@ export function AgencyChart({ trades, isLoading, className }: AgencyChartProps) 
             stroke="#8b5cf6"
             strokeWidth={2}
             animationDuration={400}
-            dot={(props: { cx?: number; cy?: number; payload?: ChartDataPoint }) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dot={((props: { cx?: number; cy?: number; payload?: ChartDataPoint }) => {
               const { cx, cy, payload } = props
-              if (cx === undefined || cy === undefined || !payload) return null
+              if (cx === undefined || cy === undefined || !payload) return false
               const color = getScoreColor(payload.score)
               return (
                 <circle
@@ -149,7 +150,7 @@ export function AgencyChart({ trades, isLoading, className }: AgencyChartProps) 
                   stroke={color}
                 />
               )
-            }}
+            }) as any}
           />
           {showMovingAverage && (
             <Line

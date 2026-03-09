@@ -140,3 +140,24 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* CopilotKit Dark Theme Overrides */
+.copilot-kit-sidebar,
+.copilot-kit-theme,
+[data-copilot-kit-theme] {
+  --copilot-kit-background: oklch(0.1 0 0);
+  --copilot-kit-foreground: oklch(0.93 0.005 240);
+  --copilot-kit-muted: oklch(0.22 0.015 250);
+  --copilot-kit-muted-foreground: oklch(0.6 0.01 250);
+  --copilot-kit-primary: oklch(0.6 0.15 235);
+  --copilot-kit-primary-foreground: oklch(0.98 0.01 235);
+  --copilot-kit-secondary: oklch(0.22 0.015 250);
+  --copilot-kit-secondary-foreground: oklch(0.93 0.005 240);
+  --copilot-kit-accent: oklch(0.22 0.03 235);
+  --copilot-kit-accent-foreground: oklch(0.85 0.1 235);
+  --copilot-kit-border: oklch(0.25 0.015 250);
+  --copilot-kit-ring: oklch(0.6 0.15 235);
+  --copilot-kit-input: oklch(0.25 0.015 250);
+  --copilot-kit-destructive: oklch(0.55 0.2 25);
+  --copilot-kit-destructive-foreground: oklch(0.98 0.01 25);
+}
