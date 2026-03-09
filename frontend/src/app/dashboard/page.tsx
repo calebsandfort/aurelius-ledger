@@ -41,7 +41,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch trades on mount
+  // Fetch trades on mount and poll every 5 seconds to pick up extraction results
   useEffect(() => {
     async function fetchTrades() {
       try {
@@ -59,22 +59,25 @@ export default function DashboardPage() {
       }
     }
 
-    if (user) {
-      fetchTrades()
-    }
+    if (!user) return
+
+    fetchTrades()
+    const interval = setInterval(fetchTrades, 5000)
+    return () => clearInterval(interval)
   }, [user])
 
-  // Fetch insights when trades are loaded
+  // Fetch insights when trades are loaded, passing the current session_id
   useEffect(() => {
     async function fetchInsights() {
-      if (trades.length < 5) {
+      const sessionId = trades[0]?.session_id
+      if (trades.length < 5 || !sessionId) {
         setInsights([])
         return
       }
 
       setInsightsLoading(true)
       try {
-        const response = await fetch('/api/v1/insights')
+        const response = await fetch(`/api/v1/insights?session_id=${encodeURIComponent(sessionId)}`)
         if (response.ok) {
           const data = await response.json()
           setInsights(data.insights || [])

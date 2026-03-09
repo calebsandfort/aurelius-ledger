@@ -3,7 +3,7 @@ import re
 from typing import Literal
 
 import structlog
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from pydantic import ValidationError
 
@@ -83,9 +83,12 @@ async def extract_trade_node(state: ExtractionState) -> dict:
         # Use with_structured_output for Pydantic validation
         structured_llm = llm.with_structured_output(TradeExtractionResult)
 
-        # Invoke LLM
+        # Invoke LLM with extraction system prompt
         response = await structured_llm.ainvoke(
-            [HumanMessage(content=sanitized_input)]
+            [
+                SystemMessage(content=EXTRACTION_PROMPT),
+                HumanMessage(content=sanitized_input),
+            ]
         )
 
         logger.info(

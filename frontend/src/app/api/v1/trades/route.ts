@@ -191,6 +191,14 @@ export async function POST(request: NextRequest) {
       .set({ tradeCount: currentSession.tradeCount + 1 })
       .where(eq(sessions.id, currentSession.id))
 
+    // Fire async extraction to backend (non-blocking)
+    const backendUrl = process.env.BACKEND_URL ?? 'http://localhost:8000'
+    fetch(`${backendUrl}/extract`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trade_id: newTrade.id, raw_input }),
+    }).catch((err) => console.error('Extraction fire-and-forget failed:', err))
+
     const responseData = {
       id: newTrade.id,
       session_id: newTrade.sessionId,

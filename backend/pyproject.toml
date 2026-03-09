@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.14"
 dependencies = [
+    "asyncpg>=0.30.0",
     "copilotkit>=0.1.78",
     "fastapi>=0.115.14",
     "langchain>=1.2.9",
