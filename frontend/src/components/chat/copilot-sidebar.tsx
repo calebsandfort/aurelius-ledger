@@ -8,6 +8,8 @@ export function CopilotSidebar() {
     <div className="h-full w-full bg-slate-950">
       <CopilotSidebarUI
         className="h-full"
+        defaultOpen={true}
+        clickOutsideToClose={false}
         labels={{
           title: "AI Assistant",
           initial: "Hi! How can I help you today?",

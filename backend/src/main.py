@@ -1,3 +1,17 @@
+import warnings
+
+# Suppress Pydantic UnsupportedFieldAttributeWarning from ag-ui-protocol package.
+# The `forwarded_props` field in RunAgentInput gets a `validation_alias` of
+# `forwardedProps` via the to_camel alias generator, which Pydantic warns about
+# when processing union/discriminator schemas. This is a known upstream issue with
+# no functional impact.
+warnings.filterwarnings(
+    "ignore",
+    message=".*forwardedProps.*",
+    category=UserWarning,
+    module="pydantic.*",
+)
+
 from dotenv import load_dotenv
 
 load_dotenv()
