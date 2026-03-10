@@ -1,6 +1,8 @@
-"""Agent nodes for insights generation."""
+"""Agent nodes for the trade-to-insights pipeline."""
 
-# Re-export chat_node from chat.py for backwards compatibility
-from src.agent.nodes.chat import chat_node  # noqa: F401
-
-__all__ = ["chat_node"]
+__all__ = [
+    "extract_trade_chat_node",
+    "write_to_db_node",
+    "run_insights_node",
+    "compose_response_node",
+]

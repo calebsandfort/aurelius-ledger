@@ -8,7 +8,17 @@ from src.schemas.trade_extraction import TradeExtractionResult
 
 
 class AgentState(TypedDict):
+    """Unified state for the trade-to-insights chat pipeline."""
+
     messages: Annotated[list[BaseMessage], add_messages]
+    user_id: Optional[str]
+    extraction: Optional[TradeExtractionResult]
+    trade_id: Optional[str]
+    session_id: Optional[str]
+    sequence_number: Optional[int]
+    session_trades: Optional[list[dict]]
+    session_summary: Optional[dict]
+    insights: Optional[list[dict]]
 
 
 class ExtractionState(TypedDict):

@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import ValidationError
 
 from src.agent.prompts import EXTRACTION_PROMPT
-from src.agent.state import ExtractionState
+from src.agent.state import AgentState, ExtractionState
 from src.schemas.trade_extraction import TradeExtractionResult
 
 logger = structlog.get_logger(__name__)
@@ -168,6 +168,43 @@ def should_retry(state: ExtractionState) -> Literal["retry", "accept", "fail"]:
         return "retry"
 
     return "fail"
+
+
+async def extract_trade_chat_node(state: AgentState) -> dict:
+    """Extract trade data from the user's latest chat message.
+
+    Delegates to the extract_trade_graph sub-workflow which handles
+    retries internally.
+    """
+    last_msg = state["messages"][-1].content
+    sanitized = sanitize_input(last_msg)
+
+    logger.info("extract_trade_chat_started", input_length=len(sanitized))
+
+    try:
+        from src.agent.workflows.trade_extraction import extract_trade_graph
+
+        result = await extract_trade_graph.ainvoke({
+            "trade_id": "pending",
+            "raw_input": sanitized,
+            "extraction": None,
+            "validation_errors": [],
+            "retry_count": 0,
+        })
+        extraction = result.get("extraction")
+        if extraction:
+            logger.info(
+                "extract_trade_chat_success",
+                direction=extraction.direction,
+                outcome=extraction.outcome,
+                pnl=extraction.pnl,
+            )
+        else:
+            logger.warning("extract_trade_chat_no_extraction")
+        return {"extraction": extraction}
+    except Exception as e:
+        logger.error("extract_trade_chat_failed", error=str(e))
+        return {"extraction": None}
 
 
 async def refine_extraction_node(state: ExtractionState) -> dict:

@@ -2,6 +2,7 @@ SYSTEM_PROMPT = """You are a helpful AI assistant. You provide clear, concise, \
 and accurate responses. If you don't know something, say so rather than making \
 things up."""
 
+
 EXTRACTION_PROMPT = """You are a trading data extraction assistant. Extract structured trade data from natural language trade descriptions.
 
 # Your Task

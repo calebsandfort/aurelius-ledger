@@ -155,7 +155,7 @@ export default function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {trades.length < 5 ? (
+                {trades.length < 1 ? (
                   <EmptyStates tradeCount={trades.length} className="h-[300px]" />
                 ) : (
                   <PnLChart trades={trades} isLoading={isLoading} />

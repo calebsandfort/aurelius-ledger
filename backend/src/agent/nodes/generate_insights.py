@@ -248,6 +248,22 @@ def detect_recovery_pattern(trades: List[Dict[str, Any]]) -> bool:
     return False
 
 
+def detect_loss_streak(trades: List[Dict[str, Any]]) -> bool:
+    """Detect 3+ consecutive losses regardless of discipline score.
+
+    Args:
+        trades: List of trade records
+
+    Returns:
+        True if 3+ consecutive losses detected in recent trades
+    """
+    if len(trades) < 3:
+        return False
+
+    recent_trades = trades[-3:]
+    return all(t.get("outcome") == "loss" for t in recent_trades)
+
+
 def generate_rule_based_insights(trades: List[Dict[str, Any]]) -> List[Insight]:
     """Generate insights based on rule detection (FR 5.5).
 
@@ -264,6 +280,13 @@ def generate_rule_based_insights(trades: List[Dict[str, Any]]) -> List[Insight]:
         insights.append(Insight(
             category="risk",
             message="Tilt risk detected: 2+ consecutive losses with low discipline. Consider taking a break.",
+            severity="warning"
+        ))
+
+    if detect_loss_streak(trades):
+        insights.append(Insight(
+            category="risk",
+            message="Losing streak: 3 consecutive losses. Consider stepping back to reassess your strategy.",
             severity="warning"
         ))
 
